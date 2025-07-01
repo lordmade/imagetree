@@ -2,104 +2,75 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ImageFeed - TikTok Style</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chaxo - Auth</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    body, html {
-      height: 100%;
-      background: #000;
-      font-family: 'Arial', sans-serif;
-      overflow-x: hidden;
-    }
-    .upload-section {
-      position: fixed;
-      top: 0;
-      width: 100%;
-      z-index: 1000;
-      background: rgba(0, 0, 0, 0.9);
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .upload-section input, .upload-section textarea, .upload-section button {
-      padding: 8px;
-      font-size: 14px;
-      border-radius: 4px;
-      border: none;
-    }
-    .upload-section button {
-      background: #0d6efd;
-      color: white;
-      cursor: pointer;
-    }
-    .feed {
-      margin-top: 180px;
-      scroll-snap-type: y mandatory;
-      overflow-y: scroll;
-      height: calc(100vh - 180px);
-    }
-    .post {
-      scroll-snap-align: start;
-      height: 100vh;
-      position: relative;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: black;
-    }
-    .post img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .overlay {
-      position: absolute;
-      bottom: 40px;
-      left: 20px;
-      right: 80px;
-      color: white;
-      z-index: 10;
-    }
-    .actions {
-      position: absolute;
-      right: 20px;
-      bottom: 40px;
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-      z-index: 10;
-    }
-    .actions button {
-      background: rgba(255, 255, 255, 0.1);
-      border: none;
-      color: white;
-      padding: 10px;
-      border-radius: 50%;
-      cursor: pointer;
+    .tab-btn.active {
+      color: #fe2c55;
+      font-weight: bold;
     }
   </style>
 </head>
-<body>
-  <div class="upload-section">
-    <input type="file" id="imageInput" accept="image/*" />
-    <textarea id="description" placeholder="Write a description..."></textarea>
-    <button onclick="uploadImage()">Upload Image</button>
+<body class="bg-black text-white flex items-center justify-center min-h-screen font-sans">
+  <div class="w-full max-w-md p-6">
+    <h2 class="text-center text-3xl font-extrabold mb-8">Chaxo</h2>
+
+    <!-- Tabs -->
+    <div class="flex justify-center mb-6">
+      <button class="tab-btn active text-lg px-4 py-2" data-tab="signup">Sign Up</button>
+      <button class="tab-btn text-lg px-4 py-2" data-tab="login">Log In</button>
+    </div>
+
+    <!-- Sign Up Form -->
+    <form id="signup-form" class="tab-content space-y-4">
+      <input type="text" id="signup-name" placeholder="Full Name" required class="w-full p-3 bg-gray-900 border border-gray-700 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500"/>
+      <input type="email" id="signup-email" placeholder="Email" required class="w-full p-3 bg-gray-900 border border-gray-700 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500"/>
+      <input type="password" id="signup-password" placeholder="Password" required class="w-full p-3 bg-gray-900 border border-gray-700 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500"/>
+      <button type="submit" class="w-full bg-pink-500 text-white py-3 rounded-full font-bold text-lg hover:bg-pink-600">Sign Up</button>
+    </form>
+
+    <!-- Sign In Form -->
+    <form id="login-form" class="tab-content space-y-4 hidden">
+      <input type="email" id="login-email" placeholder="Email" required class="w-full p-3 bg-gray-900 border border-gray-700 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500"/>
+      <input type="password" id="login-password" placeholder="Password" required class="w-full p-3 bg-gray-900 border border-gray-700 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-500"/>
+      <div class="text-right">
+        <button type="button" id="forgot-password" class="text-sm text-pink-500 hover:underline">Forgot Password?</button>
+      </div>
+      <button type="submit" class="w-full bg-pink-500 text-white py-3 rounded-full font-bold text-lg hover:bg-pink-600">Log In</button>
+    </form>
+
+    <div class="my-6 text-center text-gray-400 text-sm">OR</div>
+
+    <!-- Social Login -->
+    <button id="google-login" class="w-full bg-white text-black font-semibold py-3 rounded-full flex justify-center items-center gap-2 hover:bg-gray-100">
+      <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" class="w-6 h-6">
+      Continue with Google
+    </button>
+
+    <p id="auth-msg" class="text-sm text-center mt-4 text-pink-500"></p>
+    <p class="text-center text-gray-400 text-xs mt-4">By signing up, you agree to our <a href="#" class="text-pink-500 hover:underline">Terms</a> and <a href="#" class="text-pink-500 hover:underline">Privacy Policy</a>.</p>
   </div>
 
-  <div id="feed" class="feed"></div>
+  <!-- Firebase Scripts -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js";
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      sendPasswordResetEmail,
+      sendEmailVerification,
+      signInWithPopup,
+      GoogleAuthProvider,
+      updateProfile
+    } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-auth.js";
+    import {
+      getDatabase,
+      ref,
+      set
+    } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-database.js";
 
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.3.0/firebase-database.js"></script>
-
-  <script>
-    // ✅ Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyBOyZ3As4GTuNvjemvPF_SpsC6m6vqtNhc",
       authDomain: "fire-b-a8878.firebaseapp.com",
@@ -109,90 +80,102 @@
       messagingSenderId: "658673187627",
       appId: "1:658673187627:web:6e4c29af661785f0afa36e"
     };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
 
-    // ✅ Cloudinary Config
-    const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/image/upload';
-    const CLOUDINARY_UPLOAD_PRESET = 'banter_box';
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const db = getDatabase();
+    const provider = new GoogleAuthProvider();
 
-    function uploadImage() {
-      const input = document.getElementById('imageInput');
-      const desc = document.getElementById('description').value.trim();
-      const file = input.files[0];
+    const msgBox = document.getElementById("auth-msg");
 
-      if (!file) {
-        alert('Please select an image.');
+    // Tab switching
+    const tabBtns = document.querySelectorAll(".tab-btn");
+    const tabs = document.querySelectorAll(".tab-content");
+    tabBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        tabBtns.forEach(b => b.classList.remove("active"));
+        tabs.forEach(t => t.classList.add("hidden"));
+        btn.classList.add("active");
+        document.getElementById(`${btn.dataset.tab}-form`).classList.remove("hidden");
+        msgBox.textContent = "";
+      });
+    });
+
+    // Sign In
+    document.getElementById("login-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("login-email").value;
+      const password = document.getElementById("login-password").value;
+      try {
+        const userCred = await signInWithEmailAndPassword(auth, email, password);
+        if (!userCred.user.emailVerified) {
+          msgBox.textContent = "Please verify your email before logging in.";
+          return;
+        }
+        location.href = "friends.html";
+      } catch (err) {
+        msgBox.textContent = err.message;
+      }
+    };
+
+    // Sign Up
+    document.getElementById("signup-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("signup-name").value;
+      const email = document.getElementById("signup-email").value;
+      const password = document.getElementById("signup-password").value;
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(cred.user, { displayName: name });
+        await set(ref(db, "users/" + cred.user.uid), {
+          name,
+          email,
+          uid: cred.user.uid,
+          photoURL: "",
+          presence: "online",
+          lastSeen: Date.now()
+        });
+        await sendEmailVerification(cred.user);
+        msgBox.textContent = "Signup successful! Check your email for verification.";
+      } catch (err) {
+        msgBox.textContent = err.message;
+      }
+    };
+
+    // Forgot Password
+    document.getElementById("forgot-password").onclick = async () => {
+      const email = document.getElementById("login-email").value;
+      if (!email) {
+        msgBox.textContent = "Please enter your email to reset password.";
         return;
       }
+      try {
+        await sendPasswordResetEmail(auth, email);
+        msgBox.textContent = "Password reset email sent.";
+      } catch (err) {
+        msgBox.textContent = err.message;
+      }
+    };
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-
-      fetch(CLOUDINARY_URL, {
-        method: 'POST',
-        body: formData
-      })
-      .then(res => res.json())
-      .then(data => {
-        const imageUrl = data.secure_url;
-        savePostToFirebase(imageUrl, desc);
-      })
-      .catch(err => {
-        console.error('Cloudinary upload failed:', err);
-        alert('Image upload failed');
-      });
-
-      input.value = '';
-      document.getElementById('description').value = '';
-    }
-
-    function savePostToFirebase(imageUrl, description) {
-      const postRef = db.ref('posts').push();
-      postRef.set({
-        imageUrl,
-        description,
-        timestamp: Date.now()
-      });
-    }
-
-    function fetchPosts() {
-      const feed = document.getElementById('feed');
-      db.ref('posts').on('value', snapshot => {
-        feed.innerHTML = '';
-        const data = snapshot.val();
-        if (data) {
-          const posts = Object.values(data).sort((a, b) => b.timestamp - a.timestamp);
-          posts.forEach(post => {
-            const postEl = document.createElement('div');
-            postEl.className = 'post';
-
-            const img = document.createElement('img');
-            img.src = post.imageUrl;
-
-            const overlay = document.createElement('div');
-            overlay.className = 'overlay';
-            overlay.innerHTML = `<p>${post.description}</p>`;
-
-            const actions = document.createElement('div');
-            actions.className = 'actions';
-            actions.innerHTML = `
-              <button title="Like">❤️</button>
-              <button title="Share">🔗</button>
-              <button title="More">⋮</button>
-            `;
-
-            postEl.appendChild(img);
-            postEl.appendChild(overlay);
-            postEl.appendChild(actions);
-            feed.appendChild(postEl);
-          });
-        }
-      });
-    }
-
-    window.onload = fetchPosts;
+    // Google Login
+    document.getElementById("google-login").onclick = async () => {
+      try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        const userRef = ref(db, "users/" + user.uid);
+        await set(userRef, {
+          name: user.displayName || "User",
+          email: user.email,
+          uid: user.uid,
+          photoURL: user.photoURL || "",
+          presence: "online",
+          lastSeen: Date.now()
+        });
+        location.href = "friends.html";
+      } catch (err) {
+        msgBox.textContent = err.message;
+      }
+    };
   </script>
 </body>
 </html>
