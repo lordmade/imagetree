@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Chaxo - Home</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
     .swipe-container {
       position: relative;
       overflow: hidden;
@@ -13,6 +17,8 @@
       max-width: 500px;
       aspect-ratio: 9/16;
       margin: 0 auto;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
     .swipe-image {
       width: 100%;
@@ -21,7 +27,7 @@
       position: absolute;
       top: 0;
       left: 100%;
-      transition: left 0.5s ease-in-out;
+      transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .swipe-image.active {
       left: 0;
@@ -31,25 +37,129 @@
     }
     .fab {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
+      bottom: 24px;
+      right: 24px;
       z-index: 50;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s ease;
+      animation: pulse 2s infinite;
+    }
+    .fab:hover {
+      transform: scale(1.1);
+    }
+    .action-buttons {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      z-index: 10;
+    }
+    .action-buttons button {
+      transition: transform 0.2s ease, background-color 0.2s ease;
+    }
+    .action-buttons button:hover {
+      transform: scale(1.1);
+    }
+    .action-buttons svg {
+      fill: white;
+      width: 24px;
+      height: 24px;
+    }
+    .comment-section {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      max-height: 50%;
+      overflow-y: auto;
+      padding: 16px;
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+    }
+    .comment-section.active {
+      transform: translateY(0);
+    }
+    .uploader-name {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .loading-spinner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #fe2c55;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: translate(-50%, -50%) rotate(0deg); }
+      100% { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(254, 44, 85, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(254, 44, 85, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(254, 44, 85, 0); }
     }
   </style>
 </head>
-<body class="bg-black text-white min-h-screen font-sans flex flex-col items-center justify-center">
-  <div class="w-full max-w-md">
-    <h1 class="text-3xl font-extrabold text-center mb-6">Chaxo</h1>
+<body class="bg-gradient-to-b from-gray-900 to-black text-white min-h-screen font-sans flex flex-col items-center justify-center">
+  <div class="w-full max-w-md relative">
+    <h1 class="text-3xl font-extrabold text-center mb-6 bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-purple-500">Chaxo</h1>
     <div class="swipe-container">
       <div id="image-container"></div>
-      <button id="prev-btn" class="absolute top-1/2 left-4 transform -translate-y-1/2 bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600 hidden">
+      <div id="loading-spinner" class="loading-spinner"></div>
+      <div id="uploader-name" class="uploader-name"></div>
+      <div class="action-buttons">
+        <button id="like-btn" class="bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600" aria-label="Like this image">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+          <span id="like-count" class="text-sm font-semibold"></span>
+        </button>
+        <button id="comment-btn" class="bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600" aria-label="Comment on this image">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+          </svg>
+          <span id="comment-count" class="text-sm font-semibold"></span>
+        </button>
+        <button id="share-btn" class="bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600" aria-label="Share this image">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.13-4.11c.52.47 1.2.77 1.96.77 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.91 11.3c-.52-.47-1.2-.77-1.96-.77-1.66 0-3 1.34-3 3s1.34 3 3 3c.76 0 1.44-.3 1.96-.77l7.13 4.11c-.05.23-.09.46-.09.7s.04.47.09.7c.52-.47 1.2-.77 1.96-.77 1.66 0 3-1.34 3-3s-1.34-3-3-3z"/>
+          </svg>
+        </button>
+      </div>
+      <div id="comment-section" class="comment-section">
+        <div id="comment-list" class="space-y-2"></div>
+        <div class="flex mt-3">
+          <input id="comment-input" type="text" placeholder="Add a comment..." class="w-full p-2 bg-gray-800 text-white rounded-l-full focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Enter your comment"/>
+          <button id="comment-submit" class="bg-pink-500 text-white px-4 rounded-r-full hover:bg-pink-600 font-semibold">Post</button>
+        </div>
+      </div>
+      <button id="prev-btn" class="absolute top-1/2 left-4 transform -translate-y-1/2 bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600 hidden" aria-label="Previous image">
         ←
       </button>
-      <button id="next-btn" class="absolute top-1/2 right-4 transform -translate-y-1/2 bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600">
+      <button id="next-btn" class="absolute top-1/2 right-4 transform -translate-y-1/2 bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600" aria-label="Next image">
         →
       </button>
     </div>
-    <a href="upload.html" class="fab bg-pink-500 text-white p-4 rounded-full shadow-lg hover:bg-pink-600">
+    <a href="upload.html" class="fab bg-gradient-to-r from-pink-500 to-purple-500 text-white p-4 rounded-full" aria-label="Upload a new image">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
       </svg>
@@ -60,7 +170,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-auth.js";
-    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-database.js";
+    import { getDatabase, ref, onValue, set, push } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBOyZ3As4GTuNvjemvPF_SpsC6m6vqtNhc",
@@ -77,10 +187,12 @@
     const db = getDatabase();
 
     // Check auth state
+    let currentUser = null;
     onAuthStateChanged(auth, (user) => {
       if (!user) {
         location.href = "index.html"; // Redirect to auth page if not logged in
       } else {
+        currentUser = user;
         loadImages();
       }
     });
@@ -91,54 +203,172 @@
     const imageContainer = document.getElementById("image-container");
     const prevBtn = document.getElementById("prev-btn");
     const nextBtn = document.getElementById("next-btn");
+    const likeBtn = document.getElementById("like-btn");
+    const commentBtn = document.getElementById("comment-btn");
+    const shareBtn = document.getElementById("share-btn");
+    const commentSection = document.getElementById("comment-section");
+    const commentInput = document.getElementById("comment-input");
+    const commentSubmit = document.getElementById("comment-submit");
+    const likeCount = document.getElementById("like-count");
+    const commentCount = document.getElementById("comment-count");
+    const commentList = document.getElementById("comment-list");
+    const uploaderName = document.getElementById("uploader-name");
+    const loadingSpinner = document.getElementById("loading-spinner");
 
     function loadImages() {
+      loadingSpinner.style.display = "block";
       const imagesRef = ref(db, "images/");
       onValue(imagesRef, (snapshot) => {
         images = [];
         snapshot.forEach((childSnapshot) => {
           const data = childSnapshot.val();
           if (data.url) {
-            images.push(data.url);
+            images.push({ id: childSnapshot.key, ...data });
           }
         });
+        loadingSpinner.style.display = "none";
         displayImage();
       });
     }
 
-    // Display current image
-    function displayImage() {
+    // Display current image and its interactions
+    async function displayImage() {
       imageContainer.innerHTML = "";
+      commentList.innerHTML = "";
+      commentSection.classList.remove("active");
       if (images.length === 0) {
         imageContainer.innerHTML = `<p class="text-center text-gray-400">No images available</p>`;
         return;
       }
       const img = document.createElement("img");
-      img.src = images[currentIndex];
+      img.src = images[currentIndex].url;
       img.className = "swipe-image active";
-      img.alt = "User uploaded image";
+      img.alt = `Image uploaded by ${images[currentIndex].userId || "User"}`;
       imageContainer.appendChild(img);
+
+      // Fetch uploader's name
+      const userRef = ref(db, `users/${images[currentIndex].userId}`);
+      onValue(userRef, (snapshot) => {
+        const userData = snapshot.val();
+        uploaderName.textContent = userData?.name || "User";
+      }, { onlyOnce: true });
 
       // Preload adjacent images
       if (currentIndex < images.length - 1) {
         const nextImg = document.createElement("img");
-        nextImg.src = images[currentIndex + 1];
+        nextImg.src = images[currentIndex + 1].url;
         nextImg.className = "swipe-image";
-        nextImg.alt = "User uploaded image";
+        nextImg.alt = `Image uploaded by ${images[currentIndex + 1].userId || "User"}`;
         imageContainer.appendChild(nextImg);
       }
       if (currentIndex > 0) {
         const prevImg = document.createElement("img");
-        prevImg.src = images[currentIndex - 1];
+        prevImg.src = images[currentIndex - 1].url;
         prevImg.className = "swipe-image prev";
-        prevImg.alt = "User uploaded image";
+        prevImg.alt = `Image uploaded by ${images[currentIndex - 1].userId || "User"}`;
         imageContainer.appendChild(prevImg);
       }
 
       // Toggle button visibility
       prevBtn.classList.toggle("hidden", currentIndex === 0);
       nextBtn.classList.toggle("hidden", currentIndex === images.length - 1);
+
+      // Load likes and comments
+      loadLikes();
+      loadComments();
     }
+
+    // Load likes for current image
+    function loadLikes() {
+      const imageId = images[currentIndex].id;
+      const likesRef = ref(db, `images/${imageId}/likes`);
+      onValue(likesRef, (snapshot) => {
+        const likes = snapshot.val() || {};
+        const likeCountNum = Object.keys(likes).length;
+        likeCount.textContent = likeCountNum > 0 ? likeCountNum : "";
+        likeBtn.classList.toggle("bg-pink-700", likes[currentUser?.uid]);
+      });
+    }
+
+    // Load comments for current image
+    function loadComments() {
+      const imageId = images[currentIndex].id;
+      const commentsRef = ref(db, `images/${imageId}/comments`);
+      onValue(commentsRef, (snapshot) => {
+        const comments = snapshot.val() || {};
+        const commentCountNum = Object.keys(comments).length;
+        commentCount.textContent = commentCountNum > 0 ? commentCountNum : "";
+        commentList.innerHTML = "";
+        for (const commentId in comments) {
+          const comment = comments[commentId];
+          const commentEl = document.createElement("div");
+          commentEl.className = "text-sm text-gray-200 flex flex-col";
+          commentEl.innerHTML = `
+            <span class="font-semibold">${comment.name || "User"}</span>
+            <span>${comment.text}</span>
+          `;
+          commentList.appendChild(commentEl);
+        }
+      });
+    }
+
+    // Toggle like
+    likeBtn.addEventListener("click", () => {
+      if (!currentUser) return;
+      const imageId = images[currentIndex].id;
+      const likeRef = ref(db, `images/${imageId}/likes/${currentUser.uid}`);
+      onValue(likeRef, (snapshot) => {
+        if (snapshot.exists()) {
+          set(likeRef, null); // Unlike
+        } else {
+          set(likeRef, true); // Like
+        }
+      }, { onlyOnce: true });
+    });
+
+    // Toggle comment section
+    commentBtn.addEventListener("click", () => {
+      commentSection.classList.toggle("active");
+      commentInput.focus();
+    });
+
+    // Submit comment
+    commentSubmit.addEventListener("click", () => {
+      if (!currentUser || !commentInput.value.trim()) return;
+      const imageId = images[currentIndex].id;
+      const commentsRef = ref(db, `images/${imageId}/comments`);
+      push(commentsRef, {
+        userId: currentUser.uid,
+        name: currentUser.displayName || "User",
+        text: commentInput.value.trim(),
+        timestamp: Date.now()
+      }).then(() => {
+        commentInput.value = "";
+      });
+    });
+
+    // Share image
+    shareBtn.addEventListener("click", async () => {
+      const imageUrl = images[currentIndex].url;
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "Chaxo Image",
+            text: "Check out this image on Chaxo!",
+            url: imageUrl
+          });
+        } catch (err) {
+          console.error("Share error:", err);
+        }
+      } else {
+        // Fallback: Copy URL to clipboard
+        navigator.clipboard.writeText(imageUrl).then(() => {
+          alert("Image URL copied to clipboard!");
+        }).catch((err) => {
+          console.error("Clipboard error:", err);
+        });
+      }
+    });
 
     // Swipe to next image
     nextBtn.addEventListener("click", () => {
@@ -177,6 +407,21 @@
         displayImage();
       } else if (swipeDistance < -50 && currentIndex > 0) {
         // Swipe left (previous)
+        const currentImg = imageContainer.querySelector(".active");
+        currentImg.className = "swipe-image";
+        currentIndex--;
+        displayImage();
+      }
+    });
+
+    // Keyboard navigation
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" && currentIndex < images.length - 1) {
+        const currentImg = imageContainer.querySelector(".active");
+        currentImg.className = "swipe-image prev";
+        currentIndex++;
+        displayImage();
+      } else if (e.key === "ArrowLeft" && currentIndex > 0) {
         const currentImg = imageContainer.querySelector(".active");
         currentImg.className = "swipe-image";
         currentIndex--;
