@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Chaxo - Profile</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://widget.cloudinary.com/v2.0/global/all.js" type="text/javascript"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     body {
@@ -136,7 +135,7 @@
       <div id="profile-edit" class="mt-4 hidden">
         <input id="edit-name" type="text" placeholder="Enter your name" class="w-full p-2 bg-gray-800 text-white rounded-full focus:outline-none focus:ring-2 focus:ring-pink-500 mb-2" aria-label="Edit profile name"/>
         <input id="edit-bio" type="text" placeholder="Enter your bio" maxlength="80" class="w-full p-2 bg-gray-800 text-white rounded-full focus:outline-none focus:ring-2 focus:ring-pink-500 mb-2" aria-label="Edit profile bio"/>
-        <button id="upload-picture" class="bg-pink-500 text-white px-4 py-2 rounded-full hover:bg-pink-600 font-semibold" aria-label="Upload new profile picture">Upload Picture</button>
+        <input id="edit-picture" type="file" accept="image/jpeg,image/png" class="hidden" aria-label="Upload new profile picture"/>
         <button id="save-profile" class="bg-pink-500 text-white px-4 py-2 rounded-full hover:bg-pink-600 font-semibold mt-2" disabled>Save</button>
         <span id="profile-error" class="error-message"></span>
       </div>
@@ -171,11 +170,16 @@
     const messageBtn = document.getElementById("message-btn");
     const editName = document.getElementById("edit-name");
     const editBio = document.getElementById("edit-bio");
-    const uploadPicture = document.getElementById("upload-picture");
+    const editPicture = document.getElementById("edit-picture");
     const saveProfile = document.getElementById("save-profile");
     const profileError = document.getElementById("profile-error");
     const imageGrid = document.getElementById("image-grid");
     const loadingSpinner = document.getElementById("loading-spinner");
+
+    // Cloudinary configuration
+    const CLOUD_NAME = "YOUR_CLOUDINARY_CLOUD_NAME"; // Replace with your Cloudinary cloud name
+    const UPLOAD_PRESET = "YOUR_UPLOAD_PRESET"; // Replace with your unsigned upload preset
+    const UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
 
     // Get userId from URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -191,78 +195,17 @@
         loadProfile();
         loadImages();
         if (currentUser.uid === profileUserId || !profileUserId) {
-          initCloudinaryWidget();
-          profilePicture.addEventListener("click", () => uploadPicture.click());
+          profilePicture.addEventListener("click", () => editPicture.click());
         }
       }
     });
 
     // Prevent context menu and text highlighting
     document.addEventListener("contextmenu", (e) => {
-      if (e.target.closest(".profile-picture, #message-btn, #upload-picture, .image-grid-item")) {
+      if (e.target.closest(".profile-picture, #message-btn, .image-grid-item")) {
         e.preventDefault();
       }
     });
-
-    // Initialize Cloudinary Upload Widget
-    function initCloudinaryWidget() {
-      const cloudName = "YOUR_CLOUDINARY_CLOUD_NAME"; // Replace with your Cloudinary cloud name
-      const uploadPreset = "YOUR_UPLOAD_PRESET"; // Replace with your unsigned upload preset
-
-      const myWidget = cloudinary.createUploadWidget(
-        {
-          cloudName: cloudName,
-          uploadPreset: uploadPreset,
-          sources: ["local", "url", "camera"],
-          multiple: false,
-          maxFileSize: 5000000, // 5MB limit
-          cropping: true,
-          croppingAspectRatio: 1,
-          showSkipCropButton: false,
-          folder: "profile_pictures",
-          resourceType: "image",
-          clientAllowedFormats: ["jpg", "png", "jpeg"],
-          styles: {
-            palette: {
-              window: "#141414",
-              windowBorder: "#fe2c55",
-              tabIcon: "#fe2c55",
-              menuIcons: "#ffffff",
-              link: "#fe2c55",
-              action: "#fe2c55",
-              textDark: "#ffffff",
-              textLight: "#ffffff"
-            },
-            fonts: { default: null, "'Inter', sans-serif": { url: "https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap", active: true } }
-          }
-        },
-        (error, result) => {
-          if (!error && result && result.event === "success") {
-            const url = result.info.secure_url.replace(/upload\//, "upload/f_auto,q_auto/");
-            update(ref(db, `users/${currentUser.uid}`), { profilePicture: url })
-              .then(() => {
-                profilePicture.src = url;
-                profilePicture.alt = `Profile picture of ${editName.value || "User"}`;
-                saveProfile.disabled = false;
-              })
-              .catch(() => {
-                profileError.textContent = "Failed to save profile picture. Try again.";
-                profileError.style.display = "block";
-                loadingSpinner.style.display = "none";
-              });
-          } else if (error) {
-            profileError.textContent = error.message || "Failed to upload picture. Try again.";
-            profileError.style.display = "block";
-            loadingSpinner.style.display = "none";
-          }
-        }
-      );
-
-      uploadPicture.addEventListener("click", () => {
-        loadingSpinner.style.display = "block";
-        myWidget.open();
-      });
-    }
 
     // Load profile data
     function loadProfile() {
@@ -291,6 +234,64 @@
         }
         loadingSpinner.style.display = "none";
       }, { onlyOnce: true });
+    }
+
+    // Handle profile picture upload
+    if (editPicture) {
+      editPicture.addEventListener("change", async () => {
+        const file = editPicture.files[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+          profileError.textContent = "Profile picture must be under 5MB.";
+          profileError.style.display = "block";
+          return;
+        }
+
+        if (!["image/jpeg", "image/png"].includes(file.type)) {
+          profileError.textContent = "Only JPG and PNG images are allowed.";
+          profileError.style.display = "block";
+          return;
+        }
+
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          profilePicture.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+
+        loadingSpinner.style.display = "block";
+        profileError.style.display = "none";
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("banter_box", UPLOAD_PRESET);
+        formData.append("folder", "profile_pictures");
+
+        try {
+          const response = await fetch(UPLOAD_URL, {
+            method: "POST",
+            body: formData
+          });
+          const data = await response.json();
+          if (data.secure_url) {
+            const optimizedUrl = data.secure_url.replace(/upload\//, "upload/f_auto,q_auto/");
+            await update(ref(db, `users/${currentUser.uid}`), { profilePicture: optimizedUrl });
+            profilePicture.src = optimizedUrl;
+            profilePicture.alt = `Profile picture of ${editName.value || "User"}`;
+            saveProfile.disabled = false;
+          } else {
+            throw new Error("Upload failed");
+          }
+        } catch (err) {
+          profileError.textContent = "Failed to upload profile picture. Try again.";
+          profileError.style.display = "block";
+        } finally {
+          editPicture.value = "";
+          loadingSpinner.style.display = "none";
+        }
+      });
     }
 
     // Handle profile name and bio update
