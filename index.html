@@ -105,6 +105,32 @@
       border: 2px solid #fe2c55;
       object-fit: cover;
     }
+    .comment-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .reply-item {
+      margin-left: 40px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .reply-btn {
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    .comment-item:hover .reply-btn {
+      opacity: 1;
+    }
+    .reply-input-container {
+      display: none;
+      margin-top: 8px;
+      margin-left: 40px;
+    }
+    .reply-input-container.active {
+      display: flex;
+    }
     .loading-spinner {
       position: absolute;
       top: 50%;
@@ -221,6 +247,15 @@
       }
     });
 
+    // Hide comment section on outside click
+    document.addEventListener("click", (e) => {
+      const commentSection = document.getElementById("comment-section");
+      const commentBtn = document.getElementById("comment-btn");
+      if (!commentSection.contains(e.target) && !commentBtn.contains(e.target)) {
+        commentSection.classList.remove("active");
+      }
+    });
+
     // Load images from Firebase
     let images = [];
     let currentIndex = 0;
@@ -316,7 +351,7 @@
       });
     }
 
-    // Load comments for current image
+    // Load comments and replies for current image
     async function loadComments() {
       const imageId = images[currentIndex].id;
       const commentsRef = ref(db, `images/${imageId}/comments`);
@@ -328,7 +363,7 @@
         for (const commentId in comments) {
           const comment = comments[commentId];
           const commentEl = document.createElement("div");
-          commentEl.className = "text-sm text-gray-200 flex items-center gap-2";
+          commentEl.className = "comment-item space-y-1";
           
           // Fetch commenter’s name and profile picture
           const userRef = ref(db, `users/${comment.userId}`);
@@ -343,15 +378,90 @@
             }, { onlyOnce: true });
           });
 
+          // Create comment HTML
           commentEl.innerHTML = `
-            <img src="${profilePicture}" alt="Commenter profile picture" class="comment-profile"/>
-            <div class="flex flex-col">
-              <span class="font-semibold">${name}</span>
-              <span>${comment.text}</span>
+            <div class="flex items-center gap-2">
+              <img src="${profilePicture}" alt="Commenter profile picture" class="comment-profile"/>
+              <div class="flex flex-col">
+                <span class="font-semibold">${name}</span>
+                <span>${comment.text}</span>
+              </div>
+              <button class="reply-btn text-xs text-pink-400 hover:text-pink-500" data-comment-id="${commentId}">Reply</button>
+            </div>
+            <div class="reply-input-container" id="reply-input-${commentId}">
+              <input type="text" placeholder="Add a reply..." class="w-full p-2 bg-gray-800 text-white rounded-l-full focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Enter your reply"/>
+              <button class="reply-submit bg-pink-500 text-white px-4 rounded-r-full hover:bg-pink-600 font-semibold" data-comment-id="${commentId}">Post</button>
             </div>
           `;
+
+          // Load replies
+          const repliesRef = ref(db, `images/${imageId}/comments/${commentId}/replies`);
+          onValue(repliesRef, async (replySnapshot) => {
+            const replies = replySnapshot.val() || {};
+            const repliesContainer = document.createElement("div");
+            repliesContainer.className = "space-y-1";
+            for (const replyId in replies) {
+              const reply = replies[replyId];
+              const replyEl = document.createElement("div");
+              replyEl.className = "reply-item";
+              
+              // Fetch replier’s name and profile picture
+              const replyUserRef = ref(db, `users/${reply.userId}`);
+              let replyName = reply.name || "User";
+              let replyProfilePicture = "https://via.placeholder.com/32";
+              await new Promise((resolve) => {
+                onValue(replyUserRef, (snapshot) => {
+                  const userData = snapshot.val();
+                  replyName = userData?.name || replyName;
+                  replyProfilePicture = userData?.profilePicture || replyProfilePicture;
+                  resolve();
+                }, { onlyOnce: true });
+              });
+
+              replyEl.innerHTML = `
+                <img src="${replyProfilePicture}" alt="Replier profile picture" class="comment-profile"/>
+                <div class="flex flex-col">
+                  <span class="font-semibold">${replyName}</span>
+                  <span>${reply.text}</span>
+                </div>
+              `;
+              repliesContainer.appendChild(replyEl);
+            }
+            commentEl.appendChild(repliesContainer);
+          });
+
           commentList.appendChild(commentEl);
         }
+
+        // Add reply button event listeners
+        document.querySelectorAll(".reply-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const commentId = btn.getAttribute("data-comment-id");
+            const replyInputContainer = document.getElementById(`reply-input-${commentId}`);
+            replyInputContainer.classList.toggle("active");
+            replyInputContainer.querySelector("input").focus();
+          });
+        });
+
+        // Add reply submit event listeners
+        document.querySelectorAll(".reply-submit").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const commentId = btn.getAttribute("data-comment-id");
+            const replyInput = document.getElementById(`reply-input-${commentId}`).querySelector("input");
+            if (!currentUser || !replyInput.value.trim()) return;
+            const repliesRef = ref(db, `images/${imageId}/comments/${commentId}/replies`);
+            push(repliesRef, {
+              userId: currentUser.uid,
+              name: currentUser.displayName || "User",
+              text: replyInput.value.trim(),
+              timestamp: Date.now()
+            }).then(() => {
+              replyInput.value = "";
+              replyInputContainer.classList.remove("active");
+              loadComments(); // Refresh comments to show new reply
+            });
+          });
+        });
       });
     }
 
@@ -387,6 +497,7 @@
         timestamp: Date.now()
       }).then(() => {
         commentInput.value = "";
+        loadComments(); // Refresh comments immediately
       });
     });
 
