@@ -466,7 +466,7 @@
 
       // Load likes and comments
       loadLikes();
-      loadComments();
+      await loadComments(); // Ensure comments are loaded immediately
     }
 
     // Load likes for current image
@@ -541,7 +541,7 @@
             <div class="reply-input-container" id="reply-input-${commentId}">
               <div class="flex">
                 <input type="text" maxlength="280" placeholder="Add a reply..." class="w-full p-2 bg-gray-800 text-white rounded-l-full focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Enter your reply"/>
-                <button class="readonly class="reply-submit bg-pink-500 text-white px-4 rounded-r-full hover:bg-pink-600 font-semibold" data-comment-id="${commentId}" disabled>Post</button>
+                <button class="reply-submit bg-pink-500 text-white px-4 rounded-r-full hover:bg-pink-600 font-semibold" data-comment-id="${commentId}" disabled>Post</button>
               </div>
               <div class="flex justify-between">
                 <span class="char-counter" id="reply-char-counter-${commentId}">0/280</span>
@@ -579,7 +579,7 @@
                   onValue(replyUserRef, (snapshot) => {
                     const userData = snapshot.val();
                     replyName = userData?.name || replyName;
-                    profilePicture = userData?.profilePicture || replyProfilePicture;
+                    replyProfilePicture = userData?.profilePicture || replyProfilePicture;
                     userCache.set(reply.userId, { name: replyName, profilePicture: replyProfilePicture });
                     resolve();
                   }, { onlyOnce: true });
@@ -744,7 +744,7 @@
             }
           });
         });
-      }, { onlyOnce: true }); // Single fetch to avoid persistent listeners
+      });
     }, 100);
 
     // Toggle like
@@ -764,6 +764,9 @@
     // Toggle comment section
     commentBtn.addEventListener("click", () => {
       commentSection.classList.toggle("active");
+      if (commentSection.classList.contains("active")) {
+        debouncedLoadComments(); // Load comments when section is opened
+      }
       commentInput.focus();
     });
 
