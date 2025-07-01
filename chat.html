@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chaxo - Chat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .chat-container {
+      max-width: 500px;
+      margin: 0 auto;
+      height: calc(100vh - 120px);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .chat-header {
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(10px);
+      padding: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .recipient-profile {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid #fe2c55;
+      object-fit: cover;
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      scroll-behavior: smooth;
+    }
+    .message {
+      max-width: 70%;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      border-radius: 12px;
+      word-break: break-word;
+    }
+    .message.sent {
+      background: #fe2c55;
+      margin-left: auto;
+      border-bottom-right-radius: 4px;
+    }
+    .message.received {
+      background: #333;
+      margin-right: auto;
+      border-bottom-left-radius: 4px;
+    }
+    .chat-input-container {
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(10px);
+      padding: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .loading-spinner {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #fe2c55;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      z-index: 30;
+    }
+    .error-message {
+      color: #f87171;
+      font-size: 0.75rem;
+      margin-top: 4px;
+      display: none;
+    }
+    .char-counter {
+      font-size: 0.75rem;
+      color: #a1a1a1;
+      margin-top: 4px;
+    }
+    input:disabled, button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .skeleton {
+      background: linear-gradient(90deg, #333 25%, #444 50%, #333 75%);
+      background-size: 200% 100%;
+      animation: skeleton-loading 1.5s infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes skeleton-loading {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-b from-gray-900 to-black text-white min-h-screen font-sans flex flex-col items-center">
+  <div class="w-full max-w-md">
+    <h1 class="text-3xl font-extrabold text-center mb-6 bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-purple-500">Chaxo - Chat</h1>
+    <div class="chat-container">
+      <div id="loading-spinner" class="loading-spinner"></div>
+      <div class="chat-header">
+        <img id="recipient-profile" class="recipient-profile" src="https://via.placeholder.com/40" alt="Recipient profile picture"/>
+        <h2 id="recipient-name" class="text-lg font-semibold">User</h2>
+      </div>
+      <div id="chat-messages" class="chat-messages" role="log" aria-live="polite"></div>
+      <div class="chat-input-container">
+        <div class="flex">
+          <input id="chat-input" type="text" maxlength="280" placeholder="Type a message..." class="w-full p-2 bg-gray-800 text-white rounded-l-full focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Enter your message"/>
+          <button id="chat-submit" class="bg-pink-500 text-white px-4 rounded-r-full hover:bg-pink-600 font-semibold" disabled>Send</button>
+        </div>
+        <div class="flex justify-between">
+          <span id="chat-char-counter" class="char-counter">0/280</span>
+          <span id="chat-error" class="error-message"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase Scripts -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-auth.js";
+    import { getDatabase, ref, onValue, push } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBOyZ3As4GTuNvjemvPF_SpsC6m6vqtNhc",
+      authDomain: "fire-b-a8878.firebaseapp.com",
+      databaseURL: "https://fire-b-a8878.firebaseio.com",
+      projectId: "fire-b-a8878",
+      storageBucket: "fire-b-a8878.appspot.com",
+      messagingSenderId: "658673187627",
+      appId: "1:658673187627:web:6e4c29af661785f0afa36e"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const db = getDatabase();
+
+    const chatMessages = document.getElementById("chat-messages");
+    const chatInput = document.getElementById("chat-input");
+    const chatSubmit = document.getElementById("chat-submit");
+    const chatCharCounter = document.getElementById("chat-char-counter");
+    const chatError = document.getElementById("chat-error");
+    const recipientProfile = document.getElementById("recipient-profile");
+    const recipientName = document.getElementById("recipient-name");
+    const loadingSpinner = document.getElementById("loading-spinner");
+
+    // Get recipientId from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const recipientId = urlParams.get("recipientId");
+
+    // Check auth state
+    let currentUser = null;
+    onAuthStateChanged(auth, (user) => {
+      if (!user || !recipientId) {
+        location.href = "index.html"; // Redirect if not logged in or no recipientId
+      } else {
+        currentUser = user;
+        loadChat();
+      }
+    });
+
+    // Prevent context menu on long press
+    document.addEventListener("contextmenu", (e) => {
+      if (e.target.closest(".chat-messages, .chat-input-container, .chat-header")) {
+        e.preventDefault();
+      }
+    });
+
+    // Debounce function
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+
+    // Update character counter
+    const updateCharCounter = debounce((input, counter, max) => {
+      const count = input.value.length;
+      counter.textContent = `${count}/${max}`;
+      counter.className = `char-counter ${count > max ? 'text-red-500' : 'text-gray-400'}`;
+    }, 100);
+
+    // Load skeleton placeholders
+    function loadSkeletonMessages(count = 3) {
+      chatMessages.innerHTML = Array(count).fill().map(() => `
+        <div class="message received">
+          <div class="h-4 w-48 skeleton rounded"></div>
+        </div>
+      `).join('');
+    }
+
+    // Generate chatId from user IDs
+    function getChatId(userId1, userId2) {
+      return userId1 < userId2 ? `${userId1}_${userId2}` : `${userId2}_${userId1}`;
+    }
+
+    // Load chat data
+    async function loadChat() {
+      loadingSpinner.style.display = "block";
+      const userRef = ref(db, `users/${recipientId}`);
+      onValue(userRef, (snapshot) => {
+        const userData = snapshot.val();
+        recipientName.textContent = userData?.name || "User";
+        recipientProfile.src = userData?.profilePicture || "https://via.placeholder.com/40";
+        recipientProfile.alt = `Profile picture of ${userData?.name || "User"}`;
+      }, { onlyOnce: true });
+
+      const chatId = getChatId(currentUser.uid, recipientId);
+      const messagesRef = ref(db, `messages/${chatId}/messages`);
+      loadSkeletonMessages();
+      onValue(messagesRef, (snapshot) => {
+        chatMessages.innerHTML = "";
+        const messages = snapshot.val() || {};
+        const messageArray = Object.entries(messages).map(([id, data]) => ({ id, ...data }));
+        messageArray.sort((a, b) => a.timestamp - b.timestamp); // Oldest first
+        const fragment = document.createDocumentFragment();
+        for (const msg of messageArray) {
+          const messageEl = document.createElement("div");
+          messageEl.className = `message ${msg.senderId === currentUser.uid ? 'sent' : 'received'}`;
+          messageEl.textContent = msg.text;
+          messageEl.setAttribute("aria-label", `${msg.senderId === currentUser.uid ? 'Sent' : 'Received'} message: ${msg.text}`);
+          fragment.appendChild(messageEl);
+        }
+        chatMessages.appendChild(fragment);
+        chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll to bottom
+        loadingSpinner.style.display = "none";
+      });
+    }
+
+    // Send message
+    chatSubmit.addEventListener("click", async () => {
+      if (chatSubmit.disabled || !currentUser || !chatInput.value.trim()) return;
+
+      chatSubmit.disabled = true;
+      loadingSpinner.style.display = "block";
+      chatError.style.display = "none";
+
+      const chatId = getChatId(currentUser.uid, recipientId);
+      const messagesRef = ref(db, `messages/${chatId}/messages`);
+      try {
+        await push(messagesRef, {
+          senderId: currentUser.uid,
+          text: chatInput.value.trim(),
+          timestamp: Date.now()
+        });
+        chatInput.value = "";
+        chatError.style.display = "none";
+      } catch (err) {
+        chatError.textContent = "Failed to send message. Try again.";
+        chatError.style.display = "block";
+      } finally {
+        chatSubmit.disabled = false;
+        loadingSpinner.style.display = "none";
+      }
+    });
+
+    // Enter key submission
+    chatInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !chatSubmit.disabled && chatInput.value.trim()) {
+        chatSubmit.click();
+      }
+    });
+
+    // Character counter
+    chatInput.addEventListener("input", () => {
+      updateCharCounter(chatInput, chatCharCounter, 280);
+      chatSubmit.disabled = !chatInput.value.trim() || chatInput.value.length > 280;
+    });
+
+    // Initialize submit button
+    chatSubmit.disabled = true;
+  </script>
+</body>
+</html>
