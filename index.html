@@ -42,8 +42,11 @@
     <h1 class="text-3xl font-extrabold text-center mb-6">Chaxo</h1>
     <div class="swipe-container">
       <div id="image-container"></div>
+      <button id="prev-btn" class="absolute top-1/2 left-4 transform -translate-y-1/2 bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600 hidden">
+        ←
+      </button>
       <button id="next-btn" class="absolute top-1/2 right-4 transform -translate-y-1/2 bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600">
-        &rarr;
+        →
       </button>
     </div>
     <a href="upload.html" class="fab bg-pink-500 text-white p-4 rounded-full shadow-lg hover:bg-pink-600">
@@ -86,6 +89,8 @@
     let images = [];
     let currentIndex = 0;
     const imageContainer = document.getElementById("image-container");
+    const prevBtn = document.getElementById("prev-btn");
+    const nextBtn = document.getElementById("next-btn");
 
     function loadImages() {
       const imagesRef = ref(db, "images/");
@@ -114,7 +119,7 @@
       img.alt = "User uploaded image";
       imageContainer.appendChild(img);
 
-      // Preload next image
+      // Preload adjacent images
       if (currentIndex < images.length - 1) {
         const nextImg = document.createElement("img");
         nextImg.src = images[currentIndex + 1];
@@ -122,14 +127,35 @@
         nextImg.alt = "User uploaded image";
         imageContainer.appendChild(nextImg);
       }
+      if (currentIndex > 0) {
+        const prevImg = document.createElement("img");
+        prevImg.src = images[currentIndex - 1];
+        prevImg.className = "swipe-image prev";
+        prevImg.alt = "User uploaded image";
+        imageContainer.appendChild(prevImg);
+      }
+
+      // Toggle button visibility
+      prevBtn.classList.toggle("hidden", currentIndex === 0);
+      nextBtn.classList.toggle("hidden", currentIndex === images.length - 1);
     }
 
     // Swipe to next image
-    document.getElementById("next-btn").addEventListener("click", () => {
+    nextBtn.addEventListener("click", () => {
       if (currentIndex < images.length - 1) {
         const currentImg = imageContainer.querySelector(".active");
         currentImg.className = "swipe-image prev";
         currentIndex++;
+        displayImage();
+      }
+    });
+
+    // Swipe to previous image
+    prevBtn.addEventListener("click", () => {
+      if (currentIndex > 0) {
+        const currentImg = imageContainer.querySelector(".active");
+        currentImg.className = "swipe-image";
+        currentIndex--;
         displayImage();
       }
     });
@@ -142,10 +168,18 @@
     });
     imageContainer.addEventListener("touchend", (e) => {
       touchEndX = e.changedTouches[0].screenX;
-      if (touchStartX - touchEndX > 50 && currentIndex < images.length - 1) {
+      const swipeDistance = touchStartX - touchEndX;
+      if (swipeDistance > 50 && currentIndex < images.length - 1) {
+        // Swipe right (next)
         const currentImg = imageContainer.querySelector(".active");
         currentImg.className = "swipe-image prev";
         currentIndex++;
+        displayImage();
+      } else if (swipeDistance < -50 && currentIndex > 0) {
+        // Swipe left (previous)
+        const currentImg = imageContainer.querySelector(".active");
+        currentImg.className = "swipe-image";
+        currentIndex--;
         displayImage();
       }
     });
