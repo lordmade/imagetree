@@ -19,6 +19,7 @@
       margin: 0 auto;
       border-radius: 12px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      user-select: none;
     }
     .swipe-image {
       width: 100%;
@@ -44,6 +45,7 @@
       flex-direction: column;
       gap: 16px;
       z-index: 10;
+      user-select: none;
     }
     .action-buttons button {
       transition: transform 0.2s ease, background-color 0.2s ease;
@@ -77,6 +79,7 @@
       transition: transform 0.3s ease;
       border-top-left-radius: 12px;
       border-top-right-radius: 12px;
+      user-select: none;
     }
     .comment-section.active {
       transform: translateY(0);
@@ -93,8 +96,9 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      user-select: none;
     }
-    .uploader-profile {
+    .uploader-profile, .comment-profile {
       width: 32px;
       height: 32px;
       border-radius: 50%;
@@ -210,6 +214,13 @@
       }
     });
 
+    // Prevent context menu on long press
+    document.addEventListener("contextmenu", (e) => {
+      if (e.target.closest(".swipe-container, .action-buttons, .comment-section")) {
+        e.preventDefault();
+      }
+    });
+
     // Load images from Firebase
     let images = [];
     let currentIndex = 0;
@@ -306,10 +317,10 @@
     }
 
     // Load comments for current image
-    function loadComments() {
+    async function loadComments() {
       const imageId = images[currentIndex].id;
       const commentsRef = ref(db, `images/${imageId}/comments`);
-      onValue(commentsRef, (snapshot) => {
+      onValue(commentsRef, async (snapshot) => {
         const comments = snapshot.val() || {};
         const commentCountNum = Object.keys(comments).length;
         commentCount.textContent = commentCountNum > 0 ? commentCountNum : "";
@@ -317,10 +328,27 @@
         for (const commentId in comments) {
           const comment = comments[commentId];
           const commentEl = document.createElement("div");
-          commentEl.className = "text-sm text-gray-200 flex flex-col";
+          commentEl.className = "text-sm text-gray-200 flex items-center gap-2";
+          
+          // Fetch commenter’s name and profile picture
+          const userRef = ref(db, `users/${comment.userId}`);
+          let name = comment.name || "User";
+          let profilePicture = "https://via.placeholder.com/32";
+          await new Promise((resolve) => {
+            onValue(userRef, (snapshot) => {
+              const userData = snapshot.val();
+              name = userData?.name || name;
+              profilePicture = userData?.profilePicture || profilePicture;
+              resolve();
+            }, { onlyOnce: true });
+          });
+
           commentEl.innerHTML = `
-            <span class="font-semibold">${comment.name || "User"}</span>
-            <span>${comment.text}</span>
+            <img src="${profilePicture}" alt="Commenter profile picture" class="comment-profile"/>
+            <div class="flex flex-col">
+              <span class="font-semibold">${name}</span>
+              <span>${comment.text}</span>
+            </div>
           `;
           commentList.appendChild(commentEl);
         }
