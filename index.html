@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chaxo - Home</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .swipe-container {
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      max-width: 500px;
+      aspect-ratio: 9/16;
+      margin: 0 auto;
+    }
+    .swipe-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      position: absolute;
+      top: 0;
+      left: 100%;
+      transition: left 0.5s ease-in-out;
+    }
+    .swipe-image.active {
+      left: 0;
+    }
+    .swipe-image.prev {
+      left: -100%;
+    }
+    .fab {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 50;
+    }
+  </style>
+</head>
+<body class="bg-black text-white min-h-screen font-sans flex flex-col items-center justify-center">
+  <div class="w-full max-w-md">
+    <h1 class="text-3xl font-extrabold text-center mb-6">Chaxo</h1>
+    <div class="swipe-container">
+      <div id="image-container"></div>
+      <button id="next-btn" class="absolute top-1/2 right-4 transform -translate-y-1/2 bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600">
+        &rarr;
+      </button>
+    </div>
+    <a href="upload.html" class="fab bg-pink-500 text-white p-4 rounded-full shadow-lg hover:bg-pink-600">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+      </svg>
+    </a>
+  </div>
+
+  <!-- Firebase Scripts -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-auth.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBOyZ3As4GTuNvjemvPF_SpsC6m6vqtNhc",
+      authDomain: "fire-b-a8878.firebaseapp.com",
+      databaseURL: "https://fire-b-a8878.firebaseio.com",
+      projectId: "fire-b-a8878",
+      storageBucket: "fire-b-a8878.appspot.com",
+      messagingSenderId: "658673187627",
+      appId: "1:658673187627:web:6e4c29af661785f0afa36e"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth();
+    const db = getDatabase();
+
+    // Check auth state
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        location.href = "index.html"; // Redirect to auth page if not logged in
+      } else {
+        loadImages();
+      }
+    });
+
+    // Load images from Firebase
+    let images = [];
+    let currentIndex = 0;
+    const imageContainer = document.getElementById("image-container");
+
+    function loadImages() {
+      const imagesRef = ref(db, "images/");
+      onValue(imagesRef, (snapshot) => {
+        images = [];
+        snapshot.forEach((childSnapshot) => {
+          const data = childSnapshot.val();
+          if (data.url) {
+            images.push(data.url);
+          }
+        });
+        displayImage();
+      });
+    }
+
+    // Display current image
+    function displayImage() {
+      imageContainer.innerHTML = "";
+      if (images.length === 0) {
+        imageContainer.innerHTML = `<p class="text-center text-gray-400">No images available</p>`;
+        return;
+      }
+      const img = document.createElement("img");
+      img.src = images[currentIndex];
+      img.className = "swipe-image active";
+      img.alt = "User uploaded image";
+      imageContainer.appendChild(img);
+
+      // Preload next image
+      if (currentIndex < images.length - 1) {
+        const nextImg = document.createElement("img");
+        nextImg.src = images[currentIndex + 1];
+        nextImg.className = "swipe-image";
+        nextImg.alt = "User uploaded image";
+        imageContainer.appendChild(nextImg);
+      }
+    }
+
+    // Swipe to next image
+    document.getElementById("next-btn").addEventListener("click", () => {
+      if (currentIndex < images.length - 1) {
+        const currentImg = imageContainer.querySelector(".active");
+        currentImg.className = "swipe-image prev";
+        currentIndex++;
+        displayImage();
+      }
+    });
+
+    // Swipe gesture support
+    let touchStartX = 0;
+    let touchEndX = 0;
+    imageContainer.addEventListener("touchstart", (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    });
+    imageContainer.addEventListener("touchend", (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      if (touchStartX - touchEndX > 50 && currentIndex < images.length - 1) {
+        const currentImg = imageContainer.querySelector(".active");
+        currentImg.className = "swipe-image prev";
+        currentIndex++;
+        displayImage();
+      }
+    });
+  </script>
+</body>
+</html>
