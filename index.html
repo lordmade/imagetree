@@ -35,18 +35,6 @@
     .swipe-image.prev {
       left: -100%;
     }
-    .fab {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      z-index: 50;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      transition: transform 0.2s ease;
-      animation: pulse 2s infinite;
-    }
-    .fab:hover {
-      transform: scale(1.1);
-    }
     .action-buttons {
       position: absolute;
       right: 8px;
@@ -67,6 +55,13 @@
       fill: white;
       width: 24px;
       height: 24px;
+    }
+    .fab {
+      transition: transform 0.2s ease;
+      animation: pulse 2s infinite;
+    }
+    .fab:hover {
+      transform: scale(1.1);
     }
     .comment-section {
       position: absolute;
@@ -95,6 +90,16 @@
       border-radius: 12px;
       font-size: 0.9rem;
       font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .uploader-profile {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid #fe2c55;
+      object-fit: cover;
     }
     .loading-spinner {
       position: absolute;
@@ -107,6 +112,11 @@
       width: 40px;
       height: 40px;
       animation: spin 1s linear infinite;
+    }
+    @media (max-width: 640px) {
+      #prev-btn, #next-btn {
+        display: none;
+      }
     }
     @keyframes spin {
       0% { transform: translate(-50%, -50%) rotate(0deg); }
@@ -125,7 +135,10 @@
     <div class="swipe-container">
       <div id="image-container"></div>
       <div id="loading-spinner" class="loading-spinner"></div>
-      <div id="uploader-name" class="uploader-name"></div>
+      <div id="uploader-name" class="uploader-name">
+        <img id="uploader-profile" class="uploader-profile" src="https://via.placeholder.com/32" alt="User profile picture"/>
+        <span id="uploader-name-text"></span>
+      </div>
       <div class="action-buttons">
         <button id="like-btn" class="bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600" aria-label="Like this image">
           <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -144,6 +157,11 @@
             <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.13-4.11c.52.47 1.2.77 1.96.77 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.91 11.3c-.52-.47-1.2-.77-1.96-.77-1.66 0-3 1.34-3 3s1.34 3 3 3c.76 0 1.44-.3 1.96-.77l7.13 4.11c-.05.23-.09.46-.09.7s.04.47.09.7c.52-.47 1.2-.77 1.96-.77 1.66 0 3-1.34 3-3s-1.34-3-3-3z"/>
           </svg>
         </button>
+        <a href="upload.html" class="fab bg-gradient-to-r from-pink-500 to-purple-500 text-white p-3 rounded-full" aria-label="Upload a new image">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+        </a>
       </div>
       <div id="comment-section" class="comment-section">
         <div id="comment-list" class="space-y-2"></div>
@@ -152,18 +170,13 @@
           <button id="comment-submit" class="bg-pink-500 text-white px-4 rounded-r-full hover:bg-pink-600 font-semibold">Post</button>
         </div>
       </div>
-      <button id="prev-btn" class="absolute top-1/2 left-4 transform -translate-y-1/2 bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600 hidden" aria-label="Previous image">
+      <button id="prev-btn" class="absolute top-1/2 left-4 transform -translate-y-1/2 bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600 hidden sm:block" aria-label="Previous image">
         ←
       </button>
-      <button id="next-btn" class="absolute top-1/2 right-4 transform -translate-y-1/2 bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600" aria-label="Next image">
+      <button id="next-btn" class="absolute top-1/2 right-4 transform -translate-y-1/2 bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600 sm:block" aria-label="Next image">
         →
       </button>
     </div>
-    <a href="upload.html" class="fab bg-gradient-to-r from-pink-500 to-purple-500 text-white p-4 rounded-full" aria-label="Upload a new image">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-      </svg>
-    </a>
   </div>
 
   <!-- Firebase Scripts -->
@@ -212,7 +225,8 @@
     const likeCount = document.getElementById("like-count");
     const commentCount = document.getElementById("comment-count");
     const commentList = document.getElementById("comment-list");
-    const uploaderName = document.getElementById("uploader-name");
+    const uploaderName = document.getElementById("uploader-name-text");
+    const uploaderProfile = document.getElementById("uploader-profile");
     const loadingSpinner = document.getElementById("loading-spinner");
 
     function loadImages() {
@@ -246,11 +260,12 @@
       img.alt = `Image uploaded by ${images[currentIndex].userId || "User"}`;
       imageContainer.appendChild(img);
 
-      // Fetch uploader's name
+      // Fetch uploader's name and profile picture
       const userRef = ref(db, `users/${images[currentIndex].userId}`);
       onValue(userRef, (snapshot) => {
         const userData = snapshot.val();
         uploaderName.textContent = userData?.name || "User";
+        uploaderProfile.src = userData?.profilePicture || "https://via.placeholder.com/32";
       }, { onlyOnce: true });
 
       // Preload adjacent images
