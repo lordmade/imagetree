@@ -80,6 +80,7 @@
       border-top-left-radius: 12px;
       border-top-right-radius: 12px;
       user-select: none;
+      z-index: 20;
     }
     .comment-section.active {
       transform: translateY(0);
@@ -97,6 +98,7 @@
       align-items: center;
       gap: 8px;
       user-select: none;
+      z-index: 10;
     }
     .uploader-profile, .comment-profile {
       width: 32px;
@@ -131,7 +133,7 @@
     .reply-input-container.active {
       display: flex;
     }
-    .loading-spinner {
+    .loading-spinner, .comment-loading-spinner {
       position: absolute;
       top: 50%;
       left: 50%;
@@ -142,6 +144,19 @@
       width: 40px;
       height: 40px;
       animation: spin 1s linear infinite;
+      z-index: 30;
+    }
+    .comment-loading-spinner {
+      background: rgba(0, 0, 0, 0.5);
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      transform: none;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
     @media (max-width: 640px) {
       #prev-btn, #next-btn {
@@ -165,6 +180,7 @@
     <div class="swipe-container">
       <div id="image-container"></div>
       <div id="loading-spinner" class="loading-spinner"></div>
+      <div id="comment-loading-spinner" class="comment-loading-spinner" style="display: none;"></div>
       <div id="uploader-name" class="uploader-name">
         <img id="uploader-profile" class="uploader-profile" src="https://via.placeholder.com/32" alt="User profile picture"/>
         <span id="uploader-name-text"></span>
@@ -274,6 +290,7 @@
     const uploaderName = document.getElementById("uploader-name-text");
     const uploaderProfile = document.getElementById("uploader-profile");
     const loadingSpinner = document.getElementById("loading-spinner");
+    const commentLoadingSpinner = document.getElementById("comment-loading-spinner");
 
     function loadImages() {
       loadingSpinner.style.display = "block";
@@ -445,21 +462,32 @@
 
         // Add reply submit event listeners
         document.querySelectorAll(".reply-submit").forEach((btn) => {
-          btn.addEventListener("click", () => {
+          btn.addEventListener("click", async () => {
+            if (btn.disabled) return;
             const commentId = btn.getAttribute("data-comment-id");
             const replyInput = document.getElementById(`reply-input-${commentId}`).querySelector("input");
             if (!currentUser || !replyInput.value.trim()) return;
+            
+            // Disable button and show spinner
+            btn.disabled = true;
+            commentLoadingSpinner.style.display = "block";
+
             const repliesRef = ref(db, `images/${imageId}/comments/${commentId}/replies`);
-            push(repliesRef, {
-              userId: currentUser.uid,
-              name: currentUser.displayName || "User",
-              text: replyInput.value.trim(),
-              timestamp: Date.now()
-            }).then(() => {
+            try {
+              await push(repliesRef, {
+                userId: currentUser.uid,
+                name: currentUser.displayName || "User",
+                text: replyInput.value.trim(),
+                timestamp: Date.now()
+              });
               replyInput.value = "";
               replyInputContainer.classList.remove("active");
-              loadComments(); // Refresh comments to show new reply
-            });
+              await loadComments(); // Refresh comments to show new reply
+            } finally {
+              // Re-enable button and hide spinner
+              btn.disabled = false;
+              commentLoadingSpinner.style.display = "none";
+            }
           });
         });
       });
@@ -486,19 +514,29 @@
     });
 
     // Submit comment
-    commentSubmit.addEventListener("click", () => {
-      if (!currentUser || !commentInput.value.trim()) return;
+    commentSubmit.addEventListener("click", async () => {
+      if (commentSubmit.disabled || !currentUser || !commentInput.value.trim()) return;
+      
+      // Disable button and show spinner
+      commentSubmit.disabled = true;
+      commentLoadingSpinner.style.display = "block";
+
       const imageId = images[currentIndex].id;
       const commentsRef = ref(db, `images/${imageId}/comments`);
-      push(commentsRef, {
-        userId: currentUser.uid,
-        name: currentUser.displayName || "User",
-        text: commentInput.value.trim(),
-        timestamp: Date.now()
-      }).then(() => {
+      try {
+        await push(commentsRef, {
+          userId: currentUser.uid,
+          name: currentUser.displayName || "User",
+          text: commentInput.value.trim(),
+          timestamp: Date.now()
+        });
         commentInput.value = "";
-        loadComments(); // Refresh comments immediately
-      });
+        await loadComments(); // Refresh comments immediately
+      } finally {
+        // Re-enable button and hide spinner
+        commentSubmit.disabled = false;
+        commentLoadingSpinner.style.display = "none";
+      }
     });
 
     // Share image
