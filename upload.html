@@ -51,13 +51,18 @@
     // Cloudinary Upload Widget
     const uploadWidget = cloudinary.createUploadWidget(
       {
-        cloudName: "dqkujefxj", // Replace with your Cloudinary cloud name
-        uploadPreset: "banter_box", // Replace with your unsigned upload preset
-        sources: ["local", "url", "camera"],
+        cloudName: "dqkujefxj",
+        uploadPreset: "banter_box",
+        sources: ["local", "camera"],
+        defaultSource: "local", // Prioritize gallery; use "camera" for camera-first
         multiple: false,
         resourceType: "image",
         clientAllowedFormats: ["jpg", "png", "jpeg"],
-        maxFileSize: 5000000 // 5MB max file size
+        maxFileSize: 5000000, // 5MB max file size
+        showPoweredBy: false,
+        cropping: false,
+        showAdvancedOptions: false,
+        showUploadMoreButton: false
       },
       (error, result) => {
         if (!error && result && result.event === "success") {
