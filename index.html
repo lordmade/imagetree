@@ -273,7 +273,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-auth.js";
-    import { getDatabase, ref, onValue, set, push, remove, update } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-database.js";
+    import { getDatabase, ref, onValue, set, push, remove, update, off } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBOyZ3As4GTuNvjemvPF_SpsC6m6vqtNhc",
@@ -319,6 +319,8 @@
     // Load images from Firebase
     let images = [];
     let currentIndex = 0;
+    let currentCommentsRef = null;
+    let currentLikesRef = null;
     const imageContainer = document.getElementById("image-container");
     const prevBtn = document.getElementById("prev-btn");
     const nextBtn = document.getElementById("next-btn");
@@ -394,9 +396,15 @@
 
     // Display current image and its interactions
     async function displayImage() {
+      // Clear previous listeners to prevent cross-image interference
+      if (currentCommentsRef) off(currentCommentsRef);
+      if (currentLikesRef) off(currentLikesRef);
+      
       imageContainer.innerHTML = "";
       commentList.innerHTML = "";
       commentSection.classList.remove("active");
+      likeCount.textContent = "";
+      commentCount.textContent = "";
       if (images.length === 0) {
         imageContainer.innerHTML = `<p class="text-center text-gray-400">No images available</p>`;
         return;
@@ -439,6 +447,23 @@
       prevBtn.classList.toggle("hidden", currentIndex === 0);
       nextBtn.classList.toggle("hidden", currentIndex === images.length - 1);
 
+      // Load initial like and comment counts
+      const imageId = images[currentIndex].id;
+      currentLikesRef = ref(db, `images/${imageId}/likes`);
+      onValue(currentLikesRef, (snapshot) => {
+        const likes = snapshot.val() || {};
+        const likeCountNum = Object.keys(likes).length;
+        likeCount.textContent = likeCountNum > 0 ? likeCountNum : "";
+        likeBtn.classList.toggle("bg-pink-700", likes[currentUser?.uid]);
+      }, { onlyOnce: true });
+
+      currentCommentsRef = ref(db, `images/${imageId}/comments`);
+      onValue(currentCommentsRef, (snapshot) => {
+        const comments = snapshot.val() || {};
+        const commentCountNum = Object.keys(comments).length;
+        commentCount.textContent = commentCountNum > 0 ? commentCountNum : "";
+      }, { onlyOnce: true });
+
       // Load likes and comments
       loadLikes();
       loadComments();
@@ -466,10 +491,11 @@
       onValue(commentsRef, async (snapshot) => {
         const comments = snapshot.val() || {};
         const commentArray = Object.entries(comments).map(([id, data]) => ({ id, ...data }));
-        // Sort comments by timestamp (newest first)
         commentArray.sort((a, b) => b.timestamp - a.timestamp);
         const commentCountNum = commentArray.length;
-        commentCount.textContent = commentCountNum > 0 ? commentCountNum : "";
+        if (imageId === images[currentIndex].id) { // Ensure count is for current image
+          commentCount.textContent = commentCountNum > 0 ? commentCountNum : "";
+        }
         const fragment = document.createDocumentFragment();
         for (const comment of commentArray) {
           const commentId = comment.id;
@@ -515,7 +541,7 @@
             <div class="reply-input-container" id="reply-input-${commentId}">
               <div class="flex">
                 <input type="text" maxlength="280" placeholder="Add a reply..." class="w-full p-2 bg-gray-800 text-white rounded-l-full focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Enter your reply"/>
-                <button class="reply-submit bg-pink-500 text-white px-4 rounded-r-full hover:bg-pink-600 font-semibold" data-comment-id="${commentId}" disabled>Post</button>
+                <button class="readonly class="reply-submit bg-pink-500 text-white px-4 rounded-r-full hover:bg-pink-600 font-semibold" data-comment-id="${commentId}" disabled>Post</button>
               </div>
               <div class="flex justify-between">
                 <span class="char-counter" id="reply-char-counter-${commentId}">0/280</span>
@@ -545,7 +571,7 @@
               // Fetch replier’s name and profile picture
               let replyName = reply.name || "User";
               let replyProfilePicture = "https://via.placeholder.com/32";
-                if (userCache.has(reply.userId)) {
+              if (userCache.has(reply.userId)) {
                 ({ name: replyName, profilePicture: replyProfilePicture } = userCache.get(reply.userId));
               } else {
                 const replyUserRef = ref(db, `users/${reply.userId}`);
@@ -553,7 +579,7 @@
                   onValue(replyUserRef, (snapshot) => {
                     const userData = snapshot.val();
                     replyName = userData?.name || replyName;
-                    replyProfilePicture = userData?.profilePicture || replyProfilePicture;
+                    profilePicture = userData?.profilePicture || replyProfilePicture;
                     userCache.set(reply.userId, { name: replyName, profilePicture: replyProfilePicture });
                     resolve();
                   }, { onlyOnce: true });
@@ -613,7 +639,6 @@
             const errorEl = document.getElementById(`reply-error-${commentId}`);
             if (!currentUser || !replyInput.value.trim()) return;
             
-            // Disable button and show spinner
             btn.disabled = true;
             commentLoadingSpinner.style.display = "flex";
 
@@ -628,7 +653,7 @@
               replyInput.value = "";
               errorEl.style.display = "none";
               replyInputContainer.classList.remove("active");
-              await debouncedLoadComments(true); // Scroll to bottom
+              await debouncedLoadComments(true);
             } catch (err) {
               errorEl.textContent = "Failed to post reply. Try again.";
               errorEl.style.display = "block";
@@ -655,7 +680,6 @@
               ? document.getElementById(`reply-error-${commentId}`)
               : commentError;
             
-            // Get current text
             const refPath = isReply
               ? `images/${imageId}/comments/${commentId}/replies/${replyId}`
               : `images/${imageId}/comments/${commentId}`;
@@ -673,7 +697,7 @@
                   inputEl.value = "";
                   errorEl.style.display = "none";
                   submitBtn.textContent = "Post";
-                  submitBtn.onclick = isReply ? null : commentSubmit.onclick; // Reset handler
+                  submitBtn.onclick = isReply ? null : commentSubmit.onclick;
                   if (isReply) {
                     document.getElementById(`reply-input-${commentId}`).classList.remove("active");
                   }
@@ -720,7 +744,7 @@
             }
           });
         });
-      }, { onlyOnce: false });
+      }, { onlyOnce: true }); // Single fetch to avoid persistent listeners
     }, 100);
 
     // Toggle like
@@ -730,9 +754,9 @@
       const likeRef = ref(db, `images/${imageId}/likes/${currentUser.uid}`);
       onValue(likeRef, (snapshot) => {
         if (snapshot.exists()) {
-          set(likeRef, null); // Unlike
+          set(likeRef, null);
         } else {
-          set(likeRef, true); // Like
+          set(likeRef, true);
         }
       }, { onlyOnce: true });
     });
@@ -761,7 +785,7 @@
         });
         commentInput.value = "";
         commentError.style.display = "none";
-        await debouncedLoadComments(true); // Scroll to bottom
+        await debouncedLoadComments(true);
       } catch (err) {
         commentError.textContent = "Failed to post comment. Try again.";
         commentError.style.display = "block";
