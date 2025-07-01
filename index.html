@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ImageFeed App</title>
+  
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #fff;
+    }
+    .app {
+      max-width: 500px;
+      margin: auto;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .upload-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 30px;
+    }
+    textarea {
+      height: 60px;
+      resize: none;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    button {
+      background-color: #0d6efd;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .feed {
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 20px;
+    }
+    .post {
+      background-color: #222;
+      padding: 15px;
+      border-radius: 10px;
+    }
+    .post img {
+      width: 100%;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>📸 ImageFeed</h1>
+    
+    <div class="upload-section">
+      <input type="file" id="imageInput" accept="image/*" />
+      <textarea id="description" placeholder="Enter description..."></textarea>
+      <button onclick="uploadImage()">Upload</button>
+    </div>
+
+    <div id="feed" class="feed"></div>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.3.0/firebase-database.js"></script>
+
+  <script>
+    // ✅ Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBOyZ3As4GTuNvjemvPF_SpsC6m6vqtNhc",
+      authDomain: "fire-b-a8878.firebaseapp.com",
+      databaseURL: "https://fire-b-a8878.firebaseio.com",
+      projectId: "fire-b-a8878",
+      storageBucket: "fire-b-a8878.appspot.com",
+      messagingSenderId: "658673187627",
+      appId: "1:658673187627:web:6e4c29af661785f0afa36e"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // 🌩️ Cloudinary Config
+    const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/image/upload';
+    const CLOUDINARY_UPLOAD_PRESET = 'banter_box';
+
+    function uploadImage() {
+      const input = document.getElementById('imageInput');
+      const desc = document.getElementById('description').value.trim();
+      const file = input.files[0];
+
+      if (!file) {
+        alert('Please select an image.');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+      fetch(CLOUDINARY_URL, {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        const imageUrl = data.secure_url;
+        savePostToFirebase(imageUrl, desc);
+      })
+      .catch(err => {
+        console.error('Cloudinary upload failed:', err);
+        alert('Image upload failed');
+      });
+
+      input.value = '';
+      document.getElementById('description').value = '';
+    }
+
+    function savePostToFirebase(imageUrl, description) {
+      const postRef = db.ref('posts').push();
+      postRef.set({
+        imageUrl,
+        description,
+        timestamp: Date.now()
+      });
+    }
+
+    function fetchPosts() {
+      const feed = document.getElementById('feed');
+      db.ref('posts').on('value', snapshot => {
+        feed.innerHTML = '';
+        const data = snapshot.val();
+        if (data) {
+          const posts = Object.values(data).sort((a, b) => b.timestamp - a.timestamp);
+          posts.forEach(post => {
+            const postEl = document.createElement('div');
+            postEl.className = 'post';
+
+            const img = document.createElement('img');
+            img.src = post.imageUrl;
+
+            const desc = document.createElement('p');
+            desc.textContent = post.description;
+
+            postEl.appendChild(img);
+            postEl.appendChild(desc);
+            feed.appendChild(postEl);
+          });
+        }
+      });
+    }
+
+    window.onload = fetchPosts;
+  </script>
+</body>
+</html>
