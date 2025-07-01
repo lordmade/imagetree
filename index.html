@@ -71,7 +71,8 @@
       left: 0;
       right: 0;
       background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(8px);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       max-height: 50%;
       overflow-y: auto;
       padding: 16px;
@@ -81,6 +82,7 @@
       border-top-right-radius: 12px;
       user-select: none;
       z-index: 20;
+      scroll-behavior: smooth;
     }
     .comment-section.active {
       transform: translateY(0);
@@ -118,11 +120,11 @@
       align-items: flex-start;
       gap: 8px;
     }
-    .reply-btn {
+    .reply-btn, .edit-btn, .delete-btn, .toggle-replies-btn {
       opacity: 0;
       transition: opacity 0.2s ease;
     }
-    .comment-item:hover .reply-btn {
+    .comment-item:hover .reply-btn, .comment-item:hover .edit-btn, .comment-item:hover .delete-btn, .comment-item:hover .toggle-replies-btn {
       opacity: 1;
     }
     .reply-input-container {
@@ -167,13 +169,32 @@
       height: 40px;
       animation: spin 1s linear infinite;
     }
+    .skeleton {
+      background: linear-gradient(90deg, #333 25%, #444 50%, #333 75%);
+      background-size: 200% 100%;
+      animation: skeleton-loading 1.5s infinite;
+    }
     button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
+    .char-counter {
+      font-size: 0.75rem;
+      color: #a1a1a1;
+      margin-top: 4px;
+    }
+    .error-message {
+      color: #f87171;
+      font-size: 0.75rem;
+      margin-top: 4px;
+      display: none;
+    }
     @media (max-width: 640px) {
       #prev-btn, #next-btn {
         display: none;
+      }
+      .reply-btn, .edit-btn, .delete-btn, .toggle-replies-btn {
+        opacity: 1;
       }
     }
     @keyframes spin {
@@ -185,6 +206,10 @@
       70% { box-shadow: 0 0 0 10px rgba(254, 44, 85, 0); }
       100% { box-shadow: 0 0 0 0 rgba(254, 44, 85, 0); }
     }
+    @keyframes skeleton-loading {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
   </style>
 </head>
 <body class="bg-gradient-to-b from-gray-900 to-black text-white min-h-screen font-sans flex flex-col items-center justify-center">
@@ -193,7 +218,7 @@
     <div class="swipe-container">
       <div id="image-container"></div>
       <div id="loading-spinner" class="loading-spinner"></div>
-      <div id="comment-loading-spinner" class="comment-loading-spinner"></div>
+      <div id="comment-loading-spinner" class="comment-loading-spinner" aria-hidden="true"></div>
       <div id="uploader-name" class="uploader-name">
         <img id="uploader-profile" class="uploader-profile" src="https://via.placeholder.com/32" alt="User profile picture"/>
         <span id="uploader-name-text"></span>
@@ -222,11 +247,17 @@
           </svg>
         </a>
       </div>
-      <div id="comment-section" class="comment-section">
+      <div id="comment-section" class="comment-section" role="dialog" aria-label="Comments" aria-live="polite">
         <div id="comment-list" class="space-y-2"></div>
-        <div class="flex mt-3">
-          <input id="comment-input" type="text" placeholder="Add a comment..." class="w-full p-2 bg-gray-800 text-white rounded-l-full focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Enter your comment"/>
-          <button id="comment-submit" class="bg-pink-500 text-white px-4 rounded-r-full hover:bg-pink-600 font-semibold">Post</button>
+        <div class="flex flex-col mt-3">
+          <div class="flex">
+            <input id="comment-input" type="text" maxlength="280" placeholder="Add a comment..." class="w-full p-2 bg-gray-800 text-white rounded-l-full focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Enter your comment"/>
+            <button id="comment-submit" class="bg-pink-500 text-white px-4 rounded-r-full hover:bg-pink-600 font-semibold" disabled>Post</button>
+          </div>
+          <div class="flex justify-between">
+            <span id="comment-char-counter" class="char-counter">0/280</span>
+            <span id="comment-error" class="error-message"></span>
+          </div>
         </div>
       </div>
       <button id="prev-btn" class="absolute top-1/2 left-4 transform -translate-y-1/2 bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600 hidden sm:block" aria-label="Previous image">
@@ -242,7 +273,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-auth.js";
-    import { getDatabase, ref, onValue, set, push } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-database.js";
+    import { getDatabase, ref, onValue, set, push, remove, update } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBOyZ3As4GTuNvjemvPF_SpsC6m6vqtNhc",
@@ -304,8 +335,13 @@
     const uploaderProfile = document.getElementById("uploader-profile");
     const loadingSpinner = document.getElementById("loading-spinner");
     const commentLoadingSpinner = document.getElementById("comment-loading-spinner");
+    const commentCharCounter = document.getElementById("comment-char-counter");
+    const commentError = document.getElementById("comment-error");
 
-    // Debounce function to prevent multiple simultaneous calls
+    // User profile cache
+    const userCache = new Map();
+
+    // Debounce function
     function debounce(func, wait) {
       let timeout;
       return function executedFunction(...args) {
@@ -316,6 +352,28 @@
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
       };
+    }
+
+    // Update character counter
+    const updateCharCounter = debounce((input, counter, max) => {
+      const count = input.value.length;
+      counter.textContent = `${count}/${max}`;
+      counter.className = `char-counter ${count > max ? 'text-red-500' : 'text-gray-400'}`;
+    }, 100);
+
+    // Load skeleton placeholders
+    function loadSkeletonComments(count = 3) {
+      commentList.innerHTML = Array(count).fill().map(() => `
+        <div class="comment-item space-y-1">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full skeleton"></div>
+            <div class="flex flex-col flex-1">
+              <div class="h-4 w-24 skeleton rounded"></div>
+              <div class="h-4 w-48 skeleton rounded mt-1"></div>
+            </div>
+          </div>
+        </div>
+      `).join('');
     }
 
     function loadImages() {
@@ -355,6 +413,10 @@
         const userData = snapshot.val();
         uploaderName.textContent = userData?.name || "User";
         uploaderProfile.src = userData?.profilePicture || "https://via.placeholder.com/32";
+        userCache.set(images[currentIndex].userId, {
+          name: userData?.name || "User",
+          profilePicture: userData?.profilePicture || "https://via.placeholder.com/32"
+        });
       }, { onlyOnce: true });
 
       // Preload adjacent images
@@ -395,85 +457,141 @@
     }
 
     // Load comments and replies for current image (debounced)
-    const debouncedLoadComments = debounce(async function loadComments() {
+    const debouncedLoadComments = debounce(async function loadComments(scrollToBottom = false) {
+      commentSection.setAttribute("aria-busy", "true");
+      loadSkeletonComments();
       const imageId = images[currentIndex].id;
       const commentsRef = ref(db, `images/${imageId}/comments`);
       commentList.innerHTML = ""; // Clear existing comments to prevent duplication
       onValue(commentsRef, async (snapshot) => {
         const comments = snapshot.val() || {};
-        const commentCountNum = Object.keys(comments).length;
+        const commentArray = Object.entries(comments).map(([id, data]) => ({ id, ...data }));
+        // Sort comments by timestamp (newest first)
+        commentArray.sort((a, b) => b.timestamp - a.timestamp);
+        const commentCountNum = commentArray.length;
         commentCount.textContent = commentCountNum > 0 ? commentCountNum : "";
-        for (const commentId in comments) {
-          const comment = comments[commentId];
+        const fragment = document.createDocumentFragment();
+        for (const comment of commentArray) {
+          const commentId = comment.id;
           const commentEl = document.createElement("div");
           commentEl.className = "comment-item space-y-1";
+          commentEl.dataset.commentId = commentId;
           
           // Fetch commenter’s name and profile picture
-          const userRef = ref(db, `users/${comment.userId}`);
           let name = comment.name || "User";
           let profilePicture = "https://via.placeholder.com/32";
-          await new Promise((resolve) => {
-            onValue(userRef, (snapshot) => {
-              const userData = snapshot.val();
-              name = userData?.name || name;
-              profilePicture = userData?.profilePicture || profilePicture;
-              resolve();
-            }, { onlyOnce: true });
-          });
+          if (userCache.has(comment.userId)) {
+            ({ name, profilePicture } = userCache.get(comment.userId));
+          } else {
+            const userRef = ref(db, `users/${comment.userId}`);
+            await new Promise((resolve) => {
+              onValue(userRef, (snapshot) => {
+                const userData = snapshot.val();
+                name = userData?.name || name;
+                profilePicture = userData?.profilePicture || profilePicture;
+                userCache.set(comment.userId, { name, profilePicture });
+                resolve();
+              }, { onlyOnce: true });
+            });
+          }
 
           // Create comment HTML
+          const isOwnComment = currentUser?.uid === comment.userId;
           commentEl.innerHTML = `
             <div class="flex items-center gap-2">
               <img src="${profilePicture}" alt="Commenter profile picture" class="comment-profile"/>
-              <div class="flex flex-col">
+              <div class="flex flex-col flex-1">
                 <span class="font-semibold">${name}</span>
                 <span>${comment.text}</span>
               </div>
-              <button class="reply-btn text-xs text-pink-400 hover:text-pink-500" data-comment-id="${commentId}">Reply</button>
+              <div class="flex gap-2">
+                <button class="reply-btn text-xs text-pink-400 hover:text-pink-500 transition-all" data-comment-id="${commentId}" aria-label="Reply to comment">Reply</button>
+                ${isOwnComment ? `
+                  <button class="edit-btn text-xs text-blue-400 hover:text-blue-500 transition-all" data-comment-id="${commentId}" aria-label="Edit comment">Edit</button>
+                  <button class="delete-btn text-xs text-red-400 hover:text-red-500 transition-all" data-comment-id="${commentId}" aria-label="Delete comment">Delete</button>
+                ` : ''}
+              </div>
             </div>
             <div class="reply-input-container" id="reply-input-${commentId}">
-              <input type="text" placeholder="Add a reply..." class="w-full p-2 bg-gray-800 text-white rounded-l-full focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Enter your reply"/>
-              <button class="reply-submit bg-pink-500 text-white px-4 rounded-r-full hover:bg-pink-600 font-semibold" data-comment-id="${commentId}">Post</button>
+              <div class="flex">
+                <input type="text" maxlength="280" placeholder="Add a reply..." class="w-full p-2 bg-gray-800 text-white rounded-l-full focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Enter your reply"/>
+                <button class="reply-submit bg-pink-500 text-white px-4 rounded-r-full hover:bg-pink-600 font-semibold" data-comment-id="${commentId}" disabled>Post</button>
+              </div>
+              <div class="flex justify-between">
+                <span class="char-counter" id="reply-char-counter-${commentId}">0/280</span>
+                <span class="error-message" id="reply-error-${commentId}"></span>
+              </div>
             </div>
+            <div class="replies-container" id="replies-${commentId}" style="display: none;"></div>
+            <button class="toggle-replies-btn text-xs text-pink-400 hover:text-pink-500 transition-all w-full text-left" id="toggle-replies-${commentId}" style="display: none;" aria-label="Toggle replies"></button>
           `;
 
           // Load replies
           const repliesRef = ref(db, `images/${imageId}/comments/${commentId}/replies`);
           onValue(repliesRef, async (replySnapshot) => {
             const replies = replySnapshot.val() || {};
-            const repliesContainer = document.createElement("div");
-            repliesContainer.className = "space-y-1";
-            for (const replyId in replies) {
-              const reply = replies[replyId];
+            const replyArray = Object.entries(replies).map(([id, data]) => ({ id, ...data }));
+            replyArray.sort((a, b) => b.timestamp - a.timestamp);
+            const repliesContainer = commentEl.querySelector(`#replies-${commentId}`);
+            const toggleRepliesBtn = commentEl.querySelector(`#toggle-replies-${commentId}`);
+            toggleRepliesBtn.style.display = replyArray.length > 0 ? "block" : "none";
+            toggleRepliesBtn.textContent = `View ${replyArray.length} repl${replyArray.length === 1 ? 'y' : 'ies'}`;
+            repliesContainer.innerHTML = "";
+            for (const reply of replyArray) {
               const replyEl = document.createElement("div");
               replyEl.className = "reply-item";
+              replyEl.dataset.replyId = reply.id;
               
               // Fetch replier’s name and profile picture
-              const replyUserRef = ref(db, `users/${reply.userId}`);
               let replyName = reply.name || "User";
               let replyProfilePicture = "https://via.placeholder.com/32";
-              await new Promise((resolve) => {
-                onValue(replyUserRef, (snapshot) => {
-                  const userData = snapshot.val();
-                  replyName = userData?.name || replyName;
-                  replyProfilePicture = userData?.profilePicture || replyProfilePicture;
-                  resolve();
-                }, { onlyOnce: true });
-              });
+                if (userCache.has(reply.userId)) {
+                ({ name: replyName, profilePicture: replyProfilePicture } = userCache.get(reply.userId));
+              } else {
+                const replyUserRef = ref(db, `users/${reply.userId}`);
+                await new Promise((resolve) => {
+                  onValue(replyUserRef, (snapshot) => {
+                    const userData = snapshot.val();
+                    replyName = userData?.name || replyName;
+                    replyProfilePicture = userData?.profilePicture || replyProfilePicture;
+                    userCache.set(reply.userId, { name: replyName, profilePicture: replyProfilePicture });
+                    resolve();
+                  }, { onlyOnce: true });
+                });
+              }
 
+              const isOwnReply = currentUser?.uid === reply.userId;
               replyEl.innerHTML = `
                 <img src="${replyProfilePicture}" alt="Replier profile picture" class="comment-profile"/>
-                <div class="flex flex-col">
+                <div class="flex flex-col flex-1">
                   <span class="font-semibold">${replyName}</span>
                   <span>${reply.text}</span>
+                </div>
+                <div class="flex gap-2">
+                  ${isOwnReply ? `
+                    <button class="edit-btn text-xs text-blue-400 hover:text-blue-500 transition-all" data-comment-id="${commentId}" data-reply-id="${reply.id}" aria-label="Edit reply">Edit</button>
+                    <button class="delete-btn text-xs text-red-400 hover:text-red-500 transition-all" data-comment-id="${commentId}" data-reply-id="${reply.id}" aria-label="Delete reply">Delete</button>
+                  ` : ''}
                 </div>
               `;
               repliesContainer.appendChild(replyEl);
             }
-            commentEl.appendChild(repliesContainer);
+
+            // Add toggle replies event listener
+            toggleRepliesBtn.addEventListener("click", () => {
+              const isHidden = repliesContainer.style.display === "none";
+              repliesContainer.style.display = isHidden ? "block" : "none";
+              toggleRepliesBtn.textContent = isHidden ? `Hide ${replyArray.length} repl${replyArray.length === 1 ? 'y' : 'ies'}` : `View ${replyArray.length} repl${replyArray.length === 1 ? 'y' : 'ies'}`;
+              toggleRepliesBtn.setAttribute("aria-label", isHidden ? "Hide replies" : "Show replies");
+            });
           });
 
-          commentList.appendChild(commentEl);
+          fragment.appendChild(commentEl);
+        }
+        commentList.appendChild(fragment);
+        commentSection.setAttribute("aria-busy", "false");
+        if (scrollToBottom) {
+          commentSection.scrollTop = commentSection.scrollHeight;
         }
 
         // Add reply button event listeners
@@ -492,6 +610,7 @@
             if (btn.disabled) return;
             const commentId = btn.getAttribute("data-comment-id");
             const replyInput = document.getElementById(`reply-input-${commentId}`).querySelector("input");
+            const errorEl = document.getElementById(`reply-error-${commentId}`);
             if (!currentUser || !replyInput.value.trim()) return;
             
             // Disable button and show spinner
@@ -507,17 +626,102 @@
                 timestamp: Date.now()
               });
               replyInput.value = "";
+              errorEl.style.display = "none";
               replyInputContainer.classList.remove("active");
-              await debouncedLoadComments(); // Refresh comments to show new reply
+              await debouncedLoadComments(true); // Scroll to bottom
+            } catch (err) {
+              errorEl.textContent = "Failed to post reply. Try again.";
+              errorEl.style.display = "block";
             } finally {
-              // Re-enable button and hide spinner
               btn.disabled = false;
               commentLoadingSpinner.style.display = "none";
             }
           });
         });
-      }, { onlyOnce: false }); // Keep real-time listener
-    }, 100); // Debounce with 100ms delay
+
+        // Add edit and delete event listeners
+        document.querySelectorAll(".edit-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const commentId = btn.getAttribute("data-comment-id");
+            const replyId = btn.getAttribute("data-reply-id");
+            const isReply = !!replyId;
+            const inputEl = isReply
+              ? document.getElementById(`reply-input-${commentId}`).querySelector("input")
+              : document.getElementById("comment-input");
+            const submitBtn = isReply
+              ? document.getElementById(`reply-input-${commentId}`).querySelector(".reply-submit")
+              : commentSubmit;
+            const errorEl = isReply
+              ? document.getElementById(`reply-error-${commentId}`)
+              : commentError;
+            
+            // Get current text
+            const refPath = isReply
+              ? `images/${imageId}/comments/${commentId}/replies/${replyId}`
+              : `images/${imageId}/comments/${commentId}`;
+            const textRef = ref(db, refPath);
+            onValue(textRef, (snapshot) => {
+              const data = snapshot.val();
+              inputEl.value = data.text;
+              submitBtn.textContent = "Save";
+              submitBtn.onclick = async () => {
+                if (submitBtn.disabled || !inputEl.value.trim()) return;
+                submitBtn.disabled = true;
+                commentLoadingSpinner.style.display = "flex";
+                try {
+                  await update(ref(db, refPath), { text: inputEl.value.trim(), timestamp: Date.now() });
+                  inputEl.value = "";
+                  errorEl.style.display = "none";
+                  submitBtn.textContent = "Post";
+                  submitBtn.onclick = isReply ? null : commentSubmit.onclick; // Reset handler
+                  if (isReply) {
+                    document.getElementById(`reply-input-${commentId}`).classList.remove("active");
+                  }
+                  await debouncedLoadComments(true);
+                } catch (err) {
+                  errorEl.textContent = `Failed to edit ${isReply ? 'reply' : 'comment'}. Try again.`;
+                  errorEl.style.display = "block";
+                } finally {
+                  submitBtn.disabled = false;
+                  commentLoadingSpinner.style.display = "none";
+                }
+              };
+            }, { onlyOnce: true });
+            if (isReply) {
+              document.getElementById(`reply-input-${commentId}`).classList.add("active");
+            } else {
+              commentSection.classList.add("active");
+            }
+            inputEl.focus();
+          });
+        });
+
+        document.querySelectorAll(".delete-btn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const commentId = btn.getAttribute("data-comment-id");
+            const replyId = btn.getAttribute("data-reply-id");
+            const isReply = !!replyId;
+            const errorEl = isReply
+              ? document.getElementById(`reply-error-${commentId}`)
+              : commentError;
+            const refPath = isReply
+              ? `images/${imageId}/comments/${commentId}/replies/${replyId}`
+              : `images/${imageId}/comments/${commentId}`;
+            commentLoadingSpinner.style.display = "flex";
+            try {
+              await remove(ref(db, refPath));
+              errorEl.style.display = "none";
+              await debouncedLoadComments();
+            } catch (err) {
+              errorEl.textContent = `Failed to delete ${isReply ? 'reply' : 'comment'}. Try again.`;
+              errorEl.style.display = "block";
+            } finally {
+              commentLoadingSpinner.style.display = "none";
+            }
+          });
+        });
+      }, { onlyOnce: false });
+    }, 100);
 
     // Toggle like
     likeBtn.addEventListener("click", () => {
@@ -543,7 +747,6 @@
     commentSubmit.addEventListener("click", async () => {
       if (commentSubmit.disabled || !currentUser || !commentInput.value.trim()) return;
       
-      // Disable button and show spinner
       commentSubmit.disabled = true;
       commentLoadingSpinner.style.display = "flex";
 
@@ -557,11 +760,53 @@
           timestamp: Date.now()
         });
         commentInput.value = "";
-        await debouncedLoadComments(); // Refresh comments immediately
+        commentError.style.display = "none";
+        await debouncedLoadComments(true); // Scroll to bottom
+      } catch (err) {
+        commentError.textContent = "Failed to post comment. Try again.";
+        commentError.style.display = "block";
       } finally {
-        // Re-enable button and hide spinner
         commentSubmit.disabled = false;
         commentLoadingSpinner.style.display = "none";
+      }
+    });
+
+    // Enter key submission for comment
+    commentInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !commentSubmit.disabled && commentInput.value.trim()) {
+        commentSubmit.click();
+      }
+    });
+
+    // Character counter for comment
+    commentInput.addEventListener("input", () => {
+      updateCharCounter(commentInput, commentCharCounter, 280);
+      commentSubmit.disabled = !commentInput.value.trim() || commentInput.value.length > 280;
+    });
+
+    // Initialize comment submit button
+    commentSubmit.disabled = true;
+
+    // Character counter for replies
+    document.addEventListener("input", (e) => {
+      if (e.target.closest(".reply-input-container input")) {
+        const commentId = e.target.closest(".reply-input-container").id.replace("reply-input-", "");
+        const replyInput = e.target;
+        const replySubmit = document.querySelector(`#reply-input-${commentId} .reply-submit`);
+        const replyCharCounter = document.getElementById(`reply-char-counter-${commentId}`);
+        updateCharCounter(replyInput, replyCharCounter, 280);
+        replySubmit.disabled = !replyInput.value.trim() || replyInput.value.length > 280;
+      }
+    });
+
+    // Enter key submission for replies
+    document.addEventListener("keydown", (e) => {
+      if (e.target.closest(".reply-input-container input") && e.key === "Enter") {
+        const commentId = e.target.closest(".reply-input-container").id.replace("reply-input-", "");
+        const replySubmit = document.querySelector(`#reply-input-${commentId} .reply-submit`);
+        if (!replySubmit.disabled && e.target.value.trim()) {
+          replySubmit.click();
+        }
       }
     });
 
@@ -579,7 +824,6 @@
           console.error("Share error:", err);
         }
       } else {
-        // Fallback: Copy URL to clipboard
         navigator.clipboard.writeText(imageUrl).then(() => {
           alert("Image URL copied to clipboard!");
         }).catch((err) => {
@@ -618,13 +862,11 @@
       touchEndX = e.changedTouches[0].screenX;
       const swipeDistance = touchStartX - touchEndX;
       if (swipeDistance > 50 && currentIndex < images.length - 1) {
-        // Swipe right (next)
         const currentImg = imageContainer.querySelector(".active");
         currentImg.className = "swipe-image prev";
         currentIndex++;
         displayImage();
       } else if (swipeDistance < -50 && currentIndex > 0) {
-        // Swipe left (previous)
         const currentImg = imageContainer.querySelector(".active");
         currentImg.className = "swipe-image";
         currentIndex--;
