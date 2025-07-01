@@ -9,13 +9,23 @@
 <body class="bg-black text-white min-h-screen font-sans flex flex-col items-center justify-center">
   <div class="w-full max-w-md p-6">
     <h1 class="text-3xl font-extrabold text-center mb-6">Upload to Chaxo</h1>
-    <button id="upload_button" class="w-full bg-pink-500 text-white py-3 rounded-full font-bold text-lg hover:bg-pink-600 flex items-center justify-center gap-2">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-      </svg>
-      Upload Image
-    </button>
-    <input type="file" id="file_input" accept="image/*" capture="environment" class="hidden" />
+    <div class="space-y-4">
+      <button id="gallery_button" class="w-full bg-pink-500 text-white py-3 rounded-full font-bold text-lg hover:bg-pink-600 flex items-center justify-center gap-2">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+        </svg>
+        Choose from Gallery
+      </button>
+      <button id="camera_button" class="w-full bg-pink-500 text-white py-3 rounded-full font-bold text-lg hover:bg-pink-600 flex items-center justify-center gap-2">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+        Take Photo
+      </button>
+    </div>
+    <input type="file" id="gallery_input" accept="image/*" class="hidden" />
+    <input type="file" id="camera_input" accept="image/*" capture="environment" class="hidden" />
     <p id="upload-msg" class="text-sm text-center mt-4 text-pink-500"></p>
     <a href="index.html" class="text-center mt-4 block text-pink-500 hover:underline">Back to Home</a>
   </div>
@@ -40,8 +50,10 @@
     const auth = getAuth();
     const db = getDatabase();
     const msgBox = document.getElementById("upload-msg");
-    const uploadButton = document.getElementById("upload_button");
-    const fileInput = document.getElementById("file_input");
+    const galleryButton = document.getElementById("gallery_button");
+    const cameraButton = document.getElementById("camera_button");
+    const galleryInput = document.getElementById("gallery_input");
+    const cameraInput = document.getElementById("camera_input");
 
     // Check auth state
     onAuthStateChanged(auth, (user) => {
@@ -50,14 +62,17 @@
       }
     });
 
-    // Trigger file input on button click
-    uploadButton.addEventListener("click", () => {
-      fileInput.click();
+    // Trigger file inputs
+    galleryButton.addEventListener("click", () => {
+      galleryInput.click();
+    });
+
+    cameraButton.addEventListener("click", () => {
+      cameraInput.click();
     });
 
     // Handle file selection and upload to Cloudinary
-    fileInput.addEventListener("change", async () => {
-      const file = fileInput.files[0];
+    const handleFileUpload = async (file) => {
       if (!file) {
         msgBox.textContent = "No file selected.";
         return;
@@ -108,7 +123,11 @@
       } catch (err) {
         msgBox.textContent = "Upload error: " + err.message;
       }
-    });
+    };
+
+    // Attach upload handler to both inputs
+    galleryInput.addEventListener("change", () => handleFileUpload(galleryInput.files[0]));
+    cameraInput.addEventListener("change", () => handleFileUpload(cameraInput.files[0]));
   </script>
 </body>
 </html>
