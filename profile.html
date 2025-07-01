@@ -5,23 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Chaxo - Profile</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://widget.cloudinary.com/v2.0/global/all.js" type="text/javascript"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     body {
       font-family: 'Inter', sans-serif;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
     }
     .profile-picture {
-      width: 100px;
-      height: 100px;
+      width: 120px;
+      height: 120px;
       border-radius: 50%;
-      border: 2px solid #fe2c55;
+      border: 3px solid #fe2c55;
       object-fit: cover;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    .profile-picture:hover {
+      transform: scale(1.05);
     }
     .profile-header {
       background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(10px);
-      padding: 16px;
+      backdrop-filter: blur(12px);
+      padding: 20px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      position: relative;
+      overflow: hidden;
+    }
+    .profile-header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 100px;
+      background: linear-gradient(to bottom, #fe2c55, transparent);
+      z-index: -1;
     }
     .image-grid {
       display: grid;
@@ -106,13 +129,15 @@
     <div id="loading-spinner" class="loading-spinner"></div>
     <div class="profile-header text-center">
       <h1 class="text-3xl font-extrabold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-purple-500">Chaxo - Profile</h1>
-      <img id="profile-picture" class="profile-picture mx-auto" src="https://via.placeholder.com/100" alt="User profile picture"/>
+      <img id="profile-picture" class="profile-picture mx-auto" src="https://via.placeholder.com/120" alt="User profile picture"/>
       <h2 id="profile-name" class="text-xl font-semibold mt-4">User</h2>
+      <p id="profile-bio" class="text-sm text-gray-400 mt-2">No bio yet</p>
       <button id="message-btn" class="mt-4 bg-pink-500 text-white px-4 py-2 rounded-full hover:bg-pink-600 font-semibold hidden" aria-label="Message this user">Message</button>
       <div id="profile-edit" class="mt-4 hidden">
         <input id="edit-name" type="text" placeholder="Enter your name" class="w-full p-2 bg-gray-800 text-white rounded-full focus:outline-none focus:ring-2 focus:ring-pink-500 mb-2" aria-label="Edit profile name"/>
-        <input id="edit-picture" type="file" accept="image/*" class="w-full p-2 bg-gray-800 text-white rounded-full mb-2" aria-label="Upload new profile picture"/>
-        <button id="save-profile" class="bg-pink-500 text-white px-4 py-2 rounded-full hover:bg-pink-600 font-semibold" disabled>Save</button>
+        <input id="edit-bio" type="text" placeholder="Enter your bio" maxlength="80" class="w-full p-2 bg-gray-800 text-white rounded-full focus:outline-none focus:ring-2 focus:ring-pink-500 mb-2" aria-label="Edit profile bio"/>
+        <button id="upload-picture" class="bg-pink-500 text-white px-4 py-2 rounded-full hover:bg-pink-600 font-semibold" aria-label="Upload new profile picture">Upload Picture</button>
+        <button id="save-profile" class="bg-pink-500 text-white px-4 py-2 rounded-full hover:bg-pink-600 font-semibold mt-2" disabled>Save</button>
         <span id="profile-error" class="error-message"></span>
       </div>
     </div>
@@ -124,7 +149,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-auth.js";
     import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-database.js";
-    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-storage.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBOyZ3As4GTuNvjemvPF_SpsC6m6vqtNhc",
@@ -139,14 +163,15 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth();
     const db = getDatabase();
-    const storage = getStorage();
 
     const profilePicture = document.getElementById("profile-picture");
     const profileName = document.getElementById("profile-name");
+    const profileBio = document.getElementById("profile-bio");
     const profileEdit = document.getElementById("profile-edit");
     const messageBtn = document.getElementById("message-btn");
     const editName = document.getElementById("edit-name");
-    const editPicture = document.getElementById("edit-picture");
+    const editBio = document.getElementById("edit-bio");
+    const uploadPicture = document.getElementById("upload-picture");
     const saveProfile = document.getElementById("save-profile");
     const profileError = document.getElementById("profile-error");
     const imageGrid = document.getElementById("image-grid");
@@ -165,15 +190,79 @@
         currentUser = user;
         loadProfile();
         loadImages();
+        if (currentUser.uid === profileUserId || !profileUserId) {
+          initCloudinaryWidget();
+          profilePicture.addEventListener("click", () => uploadPicture.click());
+        }
       }
     });
 
-    // Prevent context menu on long press
+    // Prevent context menu and text highlighting
     document.addEventListener("contextmenu", (e) => {
-      if (e.target.closest(".profile-picture, #message-btn, .image-grid-item")) {
+      if (e.target.closest(".profile-picture, #message-btn, #upload-picture, .image-grid-item")) {
         e.preventDefault();
       }
     });
+
+    // Initialize Cloudinary Upload Widget
+    function initCloudinaryWidget() {
+      const cloudName = "YOUR_CLOUDINARY_CLOUD_NAME"; // Replace with your Cloudinary cloud name
+      const uploadPreset = "YOUR_UPLOAD_PRESET"; // Replace with your unsigned upload preset
+
+      const myWidget = cloudinary.createUploadWidget(
+        {
+          cloudName: cloudName,
+          uploadPreset: uploadPreset,
+          sources: ["local", "url", "camera"],
+          multiple: false,
+          maxFileSize: 5000000, // 5MB limit
+          cropping: true,
+          croppingAspectRatio: 1,
+          showSkipCropButton: false,
+          folder: "profile_pictures",
+          resourceType: "image",
+          clientAllowedFormats: ["jpg", "png", "jpeg"],
+          styles: {
+            palette: {
+              window: "#141414",
+              windowBorder: "#fe2c55",
+              tabIcon: "#fe2c55",
+              menuIcons: "#ffffff",
+              link: "#fe2c55",
+              action: "#fe2c55",
+              textDark: "#ffffff",
+              textLight: "#ffffff"
+            },
+            fonts: { default: null, "'Inter', sans-serif": { url: "https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap", active: true } }
+          }
+        },
+        (error, result) => {
+          if (!error && result && result.event === "success") {
+            const url = result.info.secure_url.replace(/upload\//, "upload/f_auto,q_auto/");
+            update(ref(db, `users/${currentUser.uid}`), { profilePicture: url })
+              .then(() => {
+                profilePicture.src = url;
+                profilePicture.alt = `Profile picture of ${editName.value || "User"}`;
+                saveProfile.disabled = false;
+              })
+              .catch(() => {
+                profileError.textContent = "Failed to save profile picture. Try again.";
+                profileError.style.display = "block";
+                loadingSpinner.style.display = "none";
+              });
+          } else if (error) {
+            profileError.textContent = error.message || "Failed to upload picture. Try again.";
+            profileError.style.display = "block";
+            loadingSpinner.style.display = "none";
+          }
+        }
+      );
+
+      uploadPicture.addEventListener("click", () => {
+        loadingSpinner.style.display = "block";
+        myWidget.open();
+      });
+    }
 
     // Load profile data
     function loadProfile() {
@@ -183,13 +272,15 @@
       onValue(userRef, (snapshot) => {
         const userData = snapshot.val();
         profileName.textContent = userData?.name || "User";
-        profilePicture.src = userData?.profilePicture || "https://via.placeholder.com/100";
+        profileBio.textContent = userData?.bio || "No bio yet";
+        profilePicture.src = userData?.profilePicture || "https://via.placeholder.com/120";
         profilePicture.alt = `Profile picture of ${userData?.name || "User"}`;
 
         if (currentUser.uid === userId) {
           profileEdit.classList.remove("hidden");
           messageBtn.classList.add("hidden");
           editName.value = userData?.name || "";
+          editBio.value = userData?.bio || "";
         } else {
           profileEdit.classList.add("hidden");
           messageBtn.classList.remove("hidden");
@@ -202,16 +293,15 @@
       }, { onlyOnce: true });
     }
 
-    // Handle profile picture upload and name update
-    if (editName && editPicture && saveProfile) {
+    // Handle profile name and bio update
+    if (editName && editBio && saveProfile) {
       const updateButtonState = () => {
         const nameValid = editName.value.trim().length > 0;
-        const pictureSelected = editPicture.files.length > 0;
-        saveProfile.disabled = !nameValid && !pictureSelected;
+        saveProfile.disabled = !nameValid;
       };
 
       editName.addEventListener("input", updateButtonState);
-      editPicture.addEventListener("change", updateButtonState);
+      editBio.addEventListener("input", updateButtonState);
 
       saveProfile.addEventListener("click", async () => {
         if (saveProfile.disabled) return;
@@ -223,38 +313,15 @@
         if (editName.value.trim()) {
           updates.name = editName.value.trim();
         }
-        if (editPicture.files.length > 0) {
-          const file = editPicture.files[0];
-          if (file.size > 5 * 1024 * 1024) {
-            profileError.textContent = "Profile picture must be under 5MB.";
-            profileError.style.display = "block";
-            saveProfile.disabled = false;
-            loadingSpinner.style.display = "none";
-            return;
-          }
-          try {
-            const pictureRef = storageRef(storage, `profile_pictures/${currentUser.uid}`);
-            await uploadBytes(pictureRef, file);
-            const url = await getDownloadURL(pictureRef);
-            updates.profilePicture = url;
-          } catch (err) {
-            profileError.textContent = "Failed to upload profile picture. Try again.";
-            profileError.style.display = "block";
-            saveProfile.disabled = false;
-            loadingSpinner.style.display = "none";
-            return;
-          }
+        if (editBio.value.trim()) {
+          updates.bio = editBio.value.trim();
         }
 
         try {
           await update(ref(db, `users/${currentUser.uid}`), updates);
           profileName.textContent = updates.name || profileName.textContent;
-          if (updates.profilePicture) {
-            profilePicture.src = updates.profilePicture;
-            profilePicture.alt = `Profile picture of ${updates.name || profileName.textContent}`;
-          }
-          editPicture.value = "";
-          updateButtonState();
+          profileBio.textContent = updates.bio || profileBio.textContent;
+          saveProfile.disabled = false;
         } catch (err) {
           profileError.textContent = "Failed to update profile. Try again.";
           profileError.style.display = "block";
