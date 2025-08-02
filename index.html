@@ -1,964 +1,268 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Chaxo - Home</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-    }
-    .swipe-container {
-      position: relative;
-      overflow: hidden;
-      width: 100%;
-      max-width: 500px;
-      aspect-ratio: 9/16;
-      margin: 0 auto;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-      user-select: none;
-    }
-    .swipe-image {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      position: absolute;
-      top: 0;
-      left: 100%;
-      transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .swipe-image.active {
-      left: 0;
-    }
-    .swipe-image.prev {
-      left: -100%;
-    }
-    .action-buttons {
-      position: absolute;
-      right: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      z-index: 10;
-      user-select: none;
-    }
-    .action-buttons button {
-      transition: transform 0.2s ease, background-color 0.2s ease;
-    }
-    .action-buttons button:hover {
-      transform: scale(1.1);
-    }
-    .action-buttons svg {
-      fill: white;
-      width: 24px;
-      height: 24px;
-    }
-    .fab {
-      transition: transform 0.2s ease;
-      animation: pulse 2s infinite;
-    }
-    .fab:hover {
-      transform: scale(1.1);
-    }
-    .comment-section {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      max-height: 50%;
-      overflow-y: auto;
-      padding: 16px;
-      transform: translateY(100%);
-      transition: transform 0.3s ease;
-      border-top-left-radius: 12px;
-      border-top-right-radius: 12px;
-      user-select: none;
-      z-index: 20;
-      scroll-behavior: smooth;
-    }
-    .comment-section.active {
-      transform: translateY(0);
-    }
-    .uploader-name {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      background: rgba(0, 0, 0, 0.6);
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      user-select: none;
-      z-index: 10;
-    }
-    .uploader-name a {
-      color: white;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .uploader-name a:hover {
-      text-decoration: underline;
-    }
-    .image-text {
-      position: absolute;
-      bottom: 16px;
-      left: 16px;
-      background: rgba(0, 0, 0, 0.6);
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 0.9rem;
-      font-weight: 400;
-      max-width: 70%;
-      word-break: break-word;
-      user-select: text;
-      z-index: 10;
-      display: none;
-    }
-    .image-text.active {
-      display: block;
-    }
-    .uploader-profile, .comment-profile {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      border: 2px solid #fe2c55;
-      object-fit: cover;
-    }
-    .comment-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-    }
-    .reply-item {
-      margin-left: 40px;
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-    }
-    .reply-btn, .edit-btn, .delete-btn, .toggle-replies-btn {
-      opacity: 0;
-      transition: opacity 0.2s ease;
-    }
-    .comment-item:hover .reply-btn, .comment-item:hover .edit-btn, .comment-item:hover .delete-btn, .comment-item:hover .toggle-replies-btn {
-      opacity: 1;
-    }
-    .reply-input-container {
-      display: none;
-      margin-top: 8px;
-      margin-left: 40px;
-    }
-    .reply-input-container.active {
-      display: flex;
-    }
-    .loading-spinner {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #fe2c55;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      z-index: 30;
-    }
-    .comment-loading-spinner {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      display: none;
-      justify-content: center;
-      align-items: center;
-      z-index: 30;
-    }
-    .comment-loading-spinner::before {
-      content: '';
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #fe2c55;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-    }
-    .skeleton {
-      background: linear-gradient(90deg, #333 25%, #444 50%, #333 75%);
-      background-size: 200% 100%;
-      animation: skeleton-loading 1.5s infinite;
-    }
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .char-counter {
-      font-size: 0.75rem;
-      color: #a1a1a1;
-      margin-top: 4px;
-    }
-    .error-message {
-      color: #f87171;
-      font-size: 0.75rem;
-      margin-top: 4px;
-      display: none;
-    }
-    @media (max-width: 640px) {
-      #prev-btn, #next-btn {
-        display: none;
-      }
-      .reply-btn, .edit-btn, .delete-btn, .toggle-replies-btn {
-        opacity: 1;
-      }
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(254, 44, 85, 0.4); }
-      70% { box-shadow: 0 0 0 10px rgba(254, 44, 85, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(254, 44, 85, 0); }
-    }
-    @keyframes skeleton-loading {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radio Broadcasting Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: #fff;
+        }
+        .radio-dashboard {
+            background: #fff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            width: 400px;
+            max-width: 90%;
+            text-align: center;
+            color: #333;
+        }
+        h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #1e3c72;
+        }
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        #startBtn {
+            background-color: #28a745;
+            color: white;
+        }
+        #stopBtn {
+            background-color: #dc3545;
+            color: white;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        button:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: scale(1.05);
+        }
+        #status {
+            font-size: 14px;
+            margin: 10px 0;
+            color: #555;
+        }
+        .metadata {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .metadata input {
+            padding: 8px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .volume-control input[type="range"] {
+            width: 100%;
+        }
+        #visualizer {
+            width: 100%;
+            height: 60px;
+            background: #f0f0f0;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #ccc;
+            margin-left: 10px;
+        }
+        .status-indicator.live {
+            background-color: #28a745;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+        }
+    </style>
 </head>
-<body class="bg-gradient-to-b from-gray-900 to-black text-white min-h-screen font-sans flex flex-col items-center justify-center">
-  <div class="w-full max-w-md relative">
-    <h1 class="text-3xl font-extrabold text-center mb-6 bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-purple-500">Chaxo</h1>
-    <div class="swipe-container">
-      <div id="image-container"></div>
-      <div id="loading-spinner" class="loading-spinner"></div>
-      <div id="comment-loading-spinner" class="comment-loading-spinner" aria-hidden="true"></div>
-      <div id="uploader-name" class="uploader-name">
-        <a id="uploader-link" href="#" aria-label="View user profile">
-          <img id="uploader-profile" class="uploader-profile" src="https://via.placeholder.com/32" alt="User profile picture"/>
-          <span id="uploader-name-text"></span>
-        </a>
-      </div>
-      <div id="image-text" class="image-text" aria-label="Image caption"></div>
-      <div class="action-buttons">
-        <button id="like-btn" class="bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600" aria-label="Like this image">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-          </svg>
-          <span id="like-count" class="text-sm font-semibold"></span>
-        </button>
-        <button id="comment-btn" class="bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600" aria-label="Comment on this image">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-          </svg>
-          <span id="comment-count" class="text-sm font-semibold"></span>
-        </button>
-        <button id="share-btn" class="bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600" aria-label="Share this image">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.70l7.13-4.11c.52.47 1.2.77 1.96.77 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.70L8.91 11.3c-.52-.47-1.2-.77-1.96-.77-1.66 0-3 1.34-3 3s1.34 3 3 3c.76 0 1.44-.3 1.96-.77l7.13 4.11c-.05.23-.09.46-.09.70s.04.47.09.70c.52-.47 1.2-.77 1.96-.77 1.66 0 3-1.34 3-3s-1.34-3-3-3z"/>
-          </svg>
-        </button>
-        <a href="upload.html" class="fab bg-gradient-to-r from-pink-500 to-purple-500 text-white p-3 rounded-full" aria-label="Upload a new image">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-          </svg>
-        </a>
-      </div>
-      <div id="comment-section" class="comment-section" role="dialog" aria-label="Comments" aria-live="polite">
-        <div id="comment-list" class="space-y-2"></div>
-        <div class="flex flex-col mt-3">
-          <div class="flex">
-            <input id="comment-input" type="text" maxlength="280" placeholder="Add a comment..." class="w-full p-2 bg-gray-800 text-white rounded-l-full focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Enter your comment"/>
-            <button id="comment-submit" class="bg-pink-500 text-white px-4 rounded-r-full hover:bg-pink-600 font-semibold" disabled>Post</button>
-          </div>
-          <div class="flex justify-between">
-            <span id="comment-char-counter" class="char-counter">0/280</span>
-            <span id="comment-error" class="error-message"></span>
-          </div>
+<body>
+    <div class="radio-dashboard">
+        <h1>Radio Broadcasting Dashboard</h1>
+        <div class="control-panel">
+            <div>
+                <button id="startBtn">Start Broadcast</button>
+                <button id="stopBtn" disabled>Stop Broadcast</button>
+            </div>
+            <p id="status">Status: Not broadcasting <span class="status-indicator"></span></p>
+            <div class="metadata">
+                <input type="text" id="stationName" placeholder="Station Name" maxlength="50">
+                <input type="text" id="description" placeholder="Broadcast Description" maxlength="100">
+            </div>
+            <div class="volume-control">
+                <label for="volume">Mic Volume:</label>
+                <input type="range" id="volume" min="0" max="1" step="0.1" value="1">
+            </div>
+            <canvas id="visualizer"></canvas>
         </div>
-      </div>
-      <button id="prev-btn" class="absolute top-1/2 left-4 transform -translate-y-1/2 bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600 hidden sm:block" aria-label="Previous image">
-        ←
-      </button>
-      <button id="next-btn" class="absolute top-1/2 right-4 transform -translate-y-1/2 bg-pink-500 text-white p-3 rounded-full hover:bg-pink-600 sm:block" aria-label="Next image">
-        →
-      </button>
     </div>
-  </div>
 
-  <!-- Firebase Scripts -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-auth.js";
-    import { getDatabase, ref, onValue, set, push, remove, update, off } from "https://www.gstatic.com/firebasejs/9.6.11/firebase-database.js";
+    <script>
+        // DOM elements
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const status = document.getElementById('status');
+        const statusIndicator = document.querySelector('.status-indicator');
+        const stationName = document.getElementById('stationName');
+        const description = document.getElementById('description');
+        const volume = document.getElementById('volume');
+        const visualizer = document.getElementById('visualizer');
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyBOyZ3As4GTuNvjemvPF_SpsC6m6vqtNhc",
-      authDomain: "fire-b-a8878.firebaseapp.com",
-      databaseURL: "https://fire-b-a8878.firebaseio.com",
-      projectId: "fire-b-a8878",
-      storageBucket: "fire-b-a8878.appspot.com",
-      messagingSenderId: "658673187627",
-      appId: "1:658673187627:web:6e4c29af661785f0afa36e"
-    };
+        let stream = null;
+        let peerConnection = null;
+        let audioContext = null;
+        let analyser = null;
+        let gainNode = null;
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth();
-    const db = getDatabase();
-
-    // Check auth state
-    let currentUser = null;
-    onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        location.href = "index.html"; // Redirect to auth page if not logged in
-      } else {
-        currentUser = user;
-        loadImages();
-      }
-    });
-
-    // Prevent context menu on long press
-    document.addEventListener("contextmenu", (e) => {
-      if (e.target.closest(".swipe-container, .action-buttons, .comment-section, .uploader-name")) {
-        e.preventDefault();
-      }
-    });
-
-    // Hide comment section on outside click
-    document.addEventListener("click", (e) => {
-      const commentSection = document.getElementById("comment-section");
-      const commentBtn = document.getElementById("comment-btn");
-      if (!commentSection.contains(e.target) && !commentBtn.contains(e.target)) {
-        commentSection.classList.remove("active");
-      }
-    });
-
-    // Load images from Firebase
-    let images = [];
-    let currentIndex = 0;
-    let currentCommentsRef = null;
-    let currentLikesRef = null;
-    const imageContainer = document.getElementById("image-container");
-    const prevBtn = document.getElementById("prev-btn");
-    const nextBtn = document.getElementById("next-btn");
-    const likeBtn = document.getElementById("like-btn");
-    const commentBtn = document.getElementById("comment-btn");
-    const shareBtn = document.getElementById("share-btn");
-    const commentSection = document.getElementById("comment-section");
-    const commentInput = document.getElementById("comment-input");
-    const commentSubmit = document.getElementById("comment-submit");
-    const likeCount = document.getElementById("like-count");
-    const commentCount = document.getElementById("comment-count");
-    const commentList = document.getElementById("comment-list");
-    const uploaderName = document.getElementById("uploader-name-text");
-    const uploaderProfile = document.getElementById("uploader-profile");
-    const uploaderLink = document.getElementById("uploader-link");
-    const imageText = document.getElementById("image-text");
-    const loadingSpinner = document.getElementById("loading-spinner");
-    const commentLoadingSpinner = document.getElementById("comment-loading-spinner");
-    const commentCharCounter = document.getElementById("comment-char-counter");
-    const commentError = document.getElementById("comment-error");
-
-    // User profile cache
-    const userCache = new Map();
-
-    // Debounce function
-    function debounce(func, wait) {
-      let timeout;
-      return function executedFunction(...args) {
-        const later = () => {
-          clearTimeout(timeout);
-          func(...args);
+        // WebRTC configuration
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' }
+            ]
         };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-      };
-    }
 
-    // Update character counter
-    const updateCharCounter = debounce((input, counter, max) => {
-      const count = input.value.length;
-      counter.textContent = `${count}/${max}`;
-      counter.className = `char-counter ${count > max ? 'text-red-500' : 'text-gray-400'}`;
-    }, 100);
+        // Audio visualizer setup
+        function setupVisualizer() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            const source = audioContext.createMediaStreamSource(stream);
+            gainNode = audioContext.createGain();
+            source.connect(gainNode);
+            gainNode.connect(analyser);
+            gainNode.gain.value = volume.value;
 
-    // Load skeleton placeholders
-    function loadSkeletonComments(count = 3) {
-      commentList.innerHTML = Array(count).fill().map(() => `
-        <div class="comment-item space-y-1">
-          <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-full skeleton"></div>
-            <div class="flex flex-col flex-1">
-              <div class="h-4 w-24 skeleton rounded"></div>
-              <div class="h-4 w-48 skeleton rounded mt-1"></div>
-            </div>
-          </div>
-        </div>
-      `).join('');
-    }
+            const canvasCtx = visualizer.getContext('2d');
+            visualizer.width = visualizer.offsetWidth;
+            visualizer.height = visualizer.offsetHeight;
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
 
-    function loadImages() {
-      loadingSpinner.style.display = "block";
-      const imagesRef = ref(db, "images/");
-      onValue(imagesRef, (snapshot) => {
-        images = [];
-        snapshot.forEach((childSnapshot) => {
-          const data = childSnapshot.val();
-          if (data.url) {
-            images.push({ id: childSnapshot.key, ...data });
-          }
-        });
-        loadingSpinner.style.display = "none";
-        displayImage();
-      });
-    }
-
-    // Display current image and its interactions
-    async function displayImage() {
-      // Clear previous listeners to prevent cross-image interference
-      if (currentCommentsRef) off(currentCommentsRef);
-      if (currentLikesRef) off(currentLikesRef);
-      
-      imageContainer.innerHTML = "";
-      commentList.innerHTML = "";
-      commentSection.classList.remove("active");
-      likeCount.textContent = "";
-      commentCount.textContent = "";
-      imageText.textContent = "";
-      imageText.classList.remove("active");
-      if (images.length === 0) {
-        imageContainer.innerHTML = `<p class="text-center text-gray-400">No images available</p>`;
-        return;
-      }
-      const img = document.createElement("img");
-      img.src = images[currentIndex].url;
-      img.className = "swipe-image active";
-      img.alt = `Image uploaded by ${images[currentIndex].userId || "User"}`;
-      imageContainer.appendChild(img);
-
-      // Fetch uploader's name, profile picture, and image text
-      const userRef = ref(db, `users/${images[currentIndex].userId}`);
-      onValue(userRef, (snapshot) => {
-        const userData = snapshot.val();
-        uploaderName.textContent = userData?.name || "User";
-        uploaderProfile.src = userData?.profilePicture || "https://via.placeholder.com/32";
-        uploaderLink.href = `profile.html?userId=${images[currentIndex].userId}`;
-        uploaderLink.setAttribute("aria-label", `View profile of ${userData?.name || "User"}`);
-        userCache.set(images[currentIndex].userId, {
-          name: userData?.name || "User",
-          profilePicture: userData?.profilePicture || "https://via.placeholder.com/32"
-        });
-      }, { onlyOnce: true });
-
-      // Display image text
-      if (images[currentIndex].text) {
-        imageText.textContent = images[currentIndex].text;
-        imageText.classList.add("active");
-        imageText.setAttribute("aria-label", `Image caption: ${images[currentIndex].text}`);
-      }
-
-      // Preload adjacent images
-      if (currentIndex < images.length - 1) {
-        const nextImg = document.createElement("img");
-        nextImg.src = images[currentIndex + 1].url;
-        nextImg.className = "swipe-image";
-        nextImg.alt = `Image uploaded by ${images[currentIndex + 1].userId || "User"}`;
-        imageContainer.appendChild(nextImg);
-      }
-      if (currentIndex > 0) {
-        const prevImg = document.createElement("img");
-        prevImg.src = images[currentIndex - 1].url;
-        prevImg.className = "swipe-image prev";
-        prevImg.alt = `Image uploaded by ${images[currentIndex - 1].userId || "User"}`;
-        imageContainer.appendChild(prevImg);
-      }
-
-      // Toggle button visibility
-      prevBtn.classList.toggle("hidden", currentIndex === 0);
-      nextBtn.classList.toggle("hidden", currentIndex === images.length - 1);
-
-      // Load initial like and comment counts
-      const imageId = images[currentIndex].id;
-      currentLikesRef = ref(db, `images/${imageId}/likes`);
-      onValue(currentLikesRef, (snapshot) => {
-        const likes = snapshot.val() || {};
-        const likeCountNum = Object.keys(likes).length;
-        likeCount.textContent = likeCountNum > 0 ? likeCountNum : "";
-        likeBtn.classList.toggle("bg-pink-700", likes[currentUser?.uid]);
-      }, { onlyOnce: true });
-
-      currentCommentsRef = ref(db, `images/${imageId}/comments`);
-      onValue(currentCommentsRef, (snapshot) => {
-        const comments = snapshot.val() || {};
-        const commentCountNum = Object.keys(comments).length;
-        commentCount.textContent = commentCountNum > 0 ? commentCountNum : "";
-      }, { onlyOnce: true });
-
-      // Load likes and comments
-      loadLikes();
-      await loadComments();
-    }
-
-    // Load likes for current image
-    function loadLikes() {
-      const imageId = images[currentIndex].id;
-      const likesRef = ref(db, `images/${imageId}/likes`);
-      onValue(likesRef, (snapshot) => {
-        const likes = snapshot.val() || {};
-        const likeCountNum = Object.keys(likes).length;
-        likeCount.textContent = likeCountNum > 0 ? likeCountNum : "";
-        likeBtn.classList.toggle("bg-pink-700", likes[currentUser?.uid]);
-      });
-    }
-
-    // Load comments and replies for current image (debounced)
-    const debouncedLoadComments = debounce(async function loadComments(scrollToBottom = false) {
-      commentSection.setAttribute("aria-busy", "true");
-      loadSkeletonComments();
-      const imageId = images[currentIndex].id;
-      const commentsRef = ref(db, `images/${imageId}/comments`);
-      commentList.innerHTML = ""; // Clear existing comments to prevent duplication
-      onValue(commentsRef, async (snapshot) => {
-        const comments = snapshot.val() || {};
-        const commentArray = Object.entries(comments).map(([id, data]) => ({ id, ...data }));
-        commentArray.sort((a, b) => b.timestamp - a.timestamp);
-        const commentCountNum = commentArray.length;
-        if (imageId === images[currentIndex].id) { // Ensure count is for current image
-          commentCount.textContent = commentCountNum > 0 ? commentCountNum : "";
-        }
-        const fragment = document.createDocumentFragment();
-        for (const comment of commentArray) {
-          const commentId = comment.id;
-          const commentEl = document.createElement("div");
-          commentEl.className = "comment-item space-y-1";
-          commentEl.dataset.commentId = commentId;
-          
-          // Fetch commenter’s name and profile picture
-          let name = comment.name || "User";
-          let profilePicture = "https://via.placeholder.com/32";
-          if (userCache.has(comment.userId)) {
-            ({ name, profilePicture } = userCache.get(comment.userId));
-          } else {
-            const userRef = ref(db, `users/${comment.userId}`);
-            await new Promise((resolve) => {
-              onValue(userRef, (snapshot) => {
-                const userData = snapshot.val();
-                name = userData?.name || name;
-                profilePicture = userData?.profilePicture || profilePicture;
-                userCache.set(comment.userId, { name, profilePicture });
-                resolve();
-              }, { onlyOnce: true });
-            });
-          }
-
-          // Create comment HTML
-          const isOwnComment = currentUser?.uid === comment.userId;
-          commentEl.innerHTML = `
-            <div class="flex items-center gap-2">
-              <img src="${profilePicture}" alt="Commenter profile picture" class="comment-profile"/>
-              <div class="flex flex-col flex-1">
-                <span class="font-semibold">${name}</span>
-                <span>${comment.text}</span>
-              </div>
-              <div class="flex gap-2">
-                <button class="reply-btn text-xs text-pink-400 hover:text-pink-500 transition-all" data-comment-id="${commentId}" aria-label="Reply to comment">Reply</button>
-                ${isOwnComment ? `
-                  <button class="edit-btn text-xs text-blue-400 hover:text-blue-500 transition-all" data-comment-id="${commentId}" aria-label="Edit comment">Edit</button>
-                  <button class="delete-btn text-xs text-red-400 hover:text-red-500 transition-all" data-comment-id="${commentId}" aria-label="Delete comment">Delete</button>
-                ` : ''}
-              </div>
-            </div>
-            <div class="reply-input-container" id="reply-input-${commentId}">
-              <div class="flex">
-                <input type="text" maxlength="280" placeholder="Add a reply..." class="w-full p-2 bg-gray-800 text-white rounded-l-full focus:outline-none focus:ring-2 focus:ring-pink-500" aria-label="Enter your reply"/>
-                <button class="reply-submit bg-pink-500 text-white px-4 rounded-r-full hover:bg-pink-600 font-semibold" data-comment-id="${commentId}" disabled>Post</button>
-              </div>
-              <div class="flex justify-between">
-                <span class="char-counter" id="reply-char-counter-${commentId}">0/280</span>
-                <span class="error-message" id="reply-error-${commentId}"></span>
-              </div>
-            </div>
-            <div class="replies-container" id="replies-${commentId}" style="display: none;"></div>
-            <button class="toggle-replies-btn text-xs text-pink-400 hover:text-pink-500 transition-all w-full text-left" id="toggle-replies-${commentId}" style="display: none;" aria-label="Toggle replies"></button>
-          `;
-
-          // Load replies
-          const repliesRef = ref(db, `images/${imageId}/comments/${commentId}/replies`);
-          onValue(repliesRef, async (replySnapshot) => {
-            const replies = replySnapshot.val() || {};
-            const replyArray = Object.entries(replies).map(([id, data]) => ({ id, ...data }));
-            replyArray.sort((a, b) => b.timestamp - a.timestamp);
-            const repliesContainer = commentEl.querySelector(`#replies-${commentId}`);
-            const toggleRepliesBtn = commentEl.querySelector(`#toggle-replies-${commentId}`);
-            toggleRepliesBtn.style.display = replyArray.length > 0 ? "block" : "none";
-            toggleRepliesBtn.textContent = `View ${replyArray.length} repl${replyArray.length === 1 ? 'y' : 'ies'}`;
-            repliesContainer.innerHTML = "";
-            for (const reply of replyArray) {
-              const replyEl = document.createElement("div");
-              replyEl.className = "reply-item";
-              replyEl.dataset.replyId = reply.id;
-              
-              // Fetch replier’s name and profile picture
-              let replyName = reply.name || "User";
-              let replyProfilePicture = "https://via.placeholder.com/32";
-              if (userCache.has(reply.userId)) {
-                ({ name: replyName, profilePicture: replyProfilePicture } = userCache.get(reply.userId));
-              } else {
-                const replyUserRef = ref(db, `users/${reply.userId}`);
-                await new Promise((resolve) => {
-                  onValue(replyUserRef, (snapshot) => {
-                    const userData = snapshot.val();
-                    replyName = userData?.name || replyName;
-                    replyProfilePicture = userData?.profilePicture || replyProfilePicture;
-                    userCache.set(reply.userId, { name: replyName, profilePicture: replyProfilePicture });
-                    resolve();
-                  }, { onlyOnce: true });
-                });
-              }
-
-              const isOwnReply = currentUser?.uid === reply.userId;
-              replyEl.innerHTML = `
-                <img src="${replyProfilePicture}" alt="Replier profile picture" class="comment-profile"/>
-                <div class="flex flex-col flex-1">
-                  <span class="font-semibold">${replyName}</span>
-                  <span>${reply.text}</span>
-                </div>
-                <div class="flex gap-2">
-                  ${isOwnReply ? `
-                    <button class="edit-btn text-xs text-blue-400 hover:text-blue-500 transition-all" data-comment-id="${commentId}" data-reply-id="${reply.id}" aria-label="Edit reply">Edit</button>
-                    <button class="delete-btn text-xs text-red-400 hover:text-red-500 transition-all" data-comment-id="${commentId}" data-reply-id="${reply.id}" aria-label="Delete reply">Delete</button>
-                  ` : ''}
-                </div>
-              `;
-              repliesContainer.appendChild(replyEl);
-            }
-
-            // Add toggle replies event listener
-            toggleRepliesBtn.addEventListener("click", () => {
-              const isHidden = repliesContainer.style.display === "none";
-              repliesContainer.style.display = isHidden ? "block" : "none";
-              toggleRepliesBtn.textContent = isHidden ? `Hide ${replyArray.length} repl${replyArray.length === 1 ? 'y' : 'ies'}` : `View ${replyArray.length} repl${replyArray.length === 1 ? 'y' : 'ies'}`;
-              toggleRepliesBtn.setAttribute("aria-label", isHidden ? "Hide replies" : "Show replies");
-            });
-          });
-
-          fragment.appendChild(commentEl);
-        }
-        commentList.appendChild(fragment);
-        commentSection.setAttribute("aria-busy", "false");
-        if (scrollToBottom) {
-          commentSection.scrollTop = commentSection.scrollHeight;
-        }
-
-        // Add reply button event listeners
-        document.querySelectorAll(".reply-btn").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            const commentId = btn.getAttribute("data-comment-id");
-            const replyInputContainer = document.getElementById(`reply-input-${commentId}`);
-            replyInputContainer.classList.toggle("active");
-            replyInputContainer.querySelector("input").focus();
-          });
-        });
-
-        // Add reply submit event listeners
-        document.querySelectorAll(".reply-submit").forEach((btn) => {
-          btn.addEventListener("click", async () => {
-            if (btn.disabled) return;
-            const commentId = btn.getAttribute("data-comment-id");
-            const replyInput = document.getElementById(`reply-input-${commentId}`).querySelector("input");
-            const errorEl = document.getElementById(`reply-error-${commentId}`);
-            if (!currentUser || !replyInput.value.trim()) return;
-            
-            btn.disabled = true;
-            commentLoadingSpinner.style.display = "flex";
-
-            const repliesRef = ref(db, `images/${imageId}/comments/${commentId}/replies`);
-            try {
-              await push(repliesRef, {
-                userId: currentUser.uid,
-                name: currentUser.displayName || "User",
-                text: replyInput.value.trim(),
-                timestamp: Date.now()
-              });
-              replyInput.value = "";
-              errorEl.style.display = "none";
-              replyInputContainer.classList.remove("active");
-              await debouncedLoadComments(true);
-            } catch (err) {
-              errorEl.textContent = "Failed to post reply. Try again.";
-              errorEl.style.display = "block";
-            } finally {
-              btn.disabled = false;
-              commentLoadingSpinner.style.display = "none";
-            }
-          });
-        });
-
-        // Add edit and delete event listeners
-        document.querySelectorAll(".edit-btn").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            const commentId = btn.getAttribute("data-comment-id");
-            const replyId = btn.getAttribute("data-reply-id");
-            const isReply = !!replyId;
-            const inputEl = isReply
-              ? document.getElementById(`reply-input-${commentId}`).querySelector("input")
-              : document.getElementById("comment-input");
-            const submitBtn = isReply
-              ? document.getElementById(`reply-input-${commentId}`).querySelector(".reply-submit")
-              : commentSubmit;
-            const errorEl = isReply
-              ? document.getElementById(`reply-error-${commentId}`)
-              : commentError;
-            
-            const refPath = isReply
-              ? `images/${imageId}/comments/${commentId}/replies/${replyId}`
-              : `images/${imageId}/comments/${commentId}`;
-            const textRef = ref(db, refPath);
-            onValue(textRef, (snapshot) => {
-              const data = snapshot.val();
-              inputEl.value = data.text;
-              submitBtn.textContent = "Save";
-              submitBtn.onclick = async () => {
-                if (submitBtn.disabled || !inputEl.value.trim()) return;
-                submitBtn.disabled = true;
-                commentLoadingSpinner.style.display = "flex";
-                try {
-                  await update(ref(db, refPath), { text: inputEl.value.trim(), timestamp: Date.now() });
-                  inputEl.value = "";
-                  errorEl.style.display = "none";
-                  submitBtn.textContent = "Post";
-                  submitBtn.onclick = isReply ? null : commentSubmit.onclick;
-                  if (isReply) {
-                    document.getElementById(`reply-input-${commentId}`).classList.remove("active");
-                  }
-                  await debouncedLoadComments(true);
-                } catch (err) {
-                  errorEl.textContent = `Failed to edit ${isReply ? 'reply' : 'comment'}. Try again.`;
-                  errorEl.style.display = "block";
-                } finally {
-                  submitBtn.disabled = false;
-                  commentLoadingSpinner.style.display = "none";
+            function draw() {
+                requestAnimationFrame(draw);
+                analyser.getByteFrequencyData(dataArray);
+                canvasCtx.fillStyle = '#f0f0f0';
+                canvasCtx.fillRect(0, 0, visualizer.width, visualizer.height);
+                const barWidth = (visualizer.width / bufferLength) * 2.5;
+                let x = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    const barHeight = (dataArray[i] / 255) * visualizer.height;
+                    canvasCtx.fillStyle = `rgb(${barHeight + 100}, 50, 150)`;
+                    canvasCtx.fillRect(x, visualizer.height - barHeight, barWidth, barHeight);
+                    x += barWidth + 1;
                 }
-              };
-            }, { onlyOnce: true });
-            if (isReply) {
-              document.getElementById(`reply-input-${commentId}`).classList.add("active");
-            } else {
-              commentSection.classList.add("active");
             }
-            inputEl.focus();
-          });
+            draw();
+        }
+
+        // Volume control
+        volume.addEventListener('input', () => {
+            if (gainNode) {
+                gainNode.gain.value = volume.value;
+            }
         });
 
-        document.querySelectorAll(".delete-btn").forEach((btn) => {
-          btn.addEventListener("click", async () => {
-            const commentId = btn.getAttribute("data-comment-id");
-            const replyId = btn.getAttribute("data-reply-id");
-            const isReply = !!replyId;
-            const errorEl = isReply
-              ? document.getElementById(`reply-error-${commentId}`)
-              : commentError;
-            const refPath = isReply
-              ? `images/${imageId}/comments/${commentId}/replies/${replyId}`
-              : `images/${imageId}/comments/${commentId}`;
-            commentLoadingSpinner.style.display = "flex";
+        // Start broadcasting
+        async function startBroadcast() {
             try {
-              await remove(ref(db, refPath));
-              errorEl.style.display = "none";
-              await debouncedLoadComments();
-            } catch (err) {
-              errorEl.textContent = `Failed to delete ${isReply ? 'reply' : 'comment'}. Try again.`;
-              errorEl.style.display = "block";
-            } finally {
-              commentLoadingSpinner.style.display = "none";
+                // Request microphone access
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                status.textContent = 'Status: Broadcasting';
+                statusIndicator.classList.add('live');
+
+                // Setup WebRTC
+                peerConnection = new RTCPeerConnection(rtcConfig);
+                stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+                peerConnection.onicecandidate = event => {
+                    if (event.candidate) {
+                        console.log('ICE candidate:', event.candidate);
+                        // Send to signaling server in a real app
+                    }
+                };
+
+                // Setup audio visualizer
+                setupVisualizer();
+
+                // Update UI
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                stationName.disabled = true;
+                description.disabled = true;
+
+                // Log metadata
+                console.log('Station:', stationName.value || 'Unnamed');
+                console.log('Description:', description.value || 'No description');
+            } catch (error) {
+                console.error('Error starting broadcast:', error);
+                status.textContent = `Status: Error - ${error.message}`;
+                statusIndicator.classList.remove('live');
             }
-          });
-        });
-      });
-    }, 100);
-
-    // Toggle like
-    likeBtn.addEventListener("click", () => {
-      if (!currentUser) return;
-      const imageId = images[currentIndex].id;
-      const likeRef = ref(db, `images/${imageId}/likes/${currentUser.uid}`);
-      onValue(likeRef, (snapshot) => {
-        if (snapshot.exists()) {
-          set(likeRef, null);
-        } else {
-          set(likeRef, true);
         }
-      }, { onlyOnce: true });
-    });
 
-    // Toggle comment section
-    commentBtn.addEventListener("click", () => {
-      commentSection.classList.toggle("active");
-      if (commentSection.classList.contains("active")) {
-        debouncedLoadComments();
-      }
-      commentInput.focus();
-    });
-
-    // Submit comment
-    commentSubmit.addEventListener("click", async () => {
-      if (commentSubmit.disabled || !currentUser || !commentInput.value.trim()) return;
-      
-      commentSubmit.disabled = true;
-      commentLoadingSpinner.style.display = "flex";
-
-      const imageId = images[currentIndex].id;
-      const commentsRef = ref(db, `images/${imageId}/comments`);
-      try {
-        await push(commentsRef, {
-          userId: currentUser.uid,
-          name: currentUser.displayName || "User",
-          text: commentInput.value.trim(),
-          timestamp: Date.now()
-        });
-        commentInput.value = "";
-        commentError.style.display = "none";
-        await debouncedLoadComments(true);
-      } catch (err) {
-        commentError.textContent = "Failed to post comment. Try again.";
-        commentError.style.display = "block";
-      } finally {
-        commentSubmit.disabled = false;
-        commentLoadingSpinner.style.display = "none";
-      }
-    });
-
-    // Enter key submission for comment
-    commentInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !commentSubmit.disabled && commentInput.value.trim()) {
-        commentSubmit.click();
-      }
-    });
-
-    // Character counter for comment
-    commentInput.addEventListener("input", () => {
-      updateCharCounter(commentInput, commentCharCounter, 280);
-      commentSubmit.disabled = !commentInput.value.trim() || commentInput.value.length > 280;
-    });
-
-    // Initialize comment submit button
-    commentSubmit.disabled = true;
-
-    // Character counter for replies
-    document.addEventListener("input", (e) => {
-      if (e.target.closest(".reply-input-container input")) {
-        const commentId = e.target.closest(".reply-input-container").id.replace("reply-input-", "");
-        const replyInput = e.target;
-        const replySubmit = document.querySelector(`#reply-input-${commentId} .reply-submit`);
-        const replyCharCounter = document.getElementById(`reply-char-counter-${commentId}`);
-        updateCharCounter(replyInput, replyCharCounter, 280);
-        replySubmit.disabled = !replyInput.value.trim() || replyInput.value.length > 280;
-      }
-    });
-
-    // Enter key submission for replies
-    document.addEventListener("keydown", (e) => {
-      if (e.target.closest(".reply-input-container input") && e.key === "Enter") {
-        const commentId = e.target.closest(".reply-input-container").id.replace("reply-input-", "");
-        const replySubmit = document.querySelector(`#reply-input-${commentId} .reply-submit`);
-        if (!replySubmit.disabled && e.target.value.trim()) {
-          replySubmit.click();
+        // Stop broadcasting
+        function stopBroadcast() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            status.textContent = 'Status: Not broadcasting';
+            statusIndicator.classList.remove('live');
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            stationName.disabled = false;
+            description.disabled = false;
+            visualizer.getContext('2d').clearRect(0, 0, visualizer.width, visualizer.height);
         }
-      }
-    });
 
-    // Share image
-    shareBtn.addEventListener("click", async () => {
-      const imageUrl = images[currentIndex].url;
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: "Chaxo Image",
-            text: images[currentIndex].text ? `${images[currentIndex].text} - Check out this image on Chaxo!` : "Check out this image on Chaxo!",
-            url: imageUrl
-          });
-        } catch (err) {
-          console.error("Share error:", err);
-        }
-      } else {
-        navigator.clipboard.writeText(imageUrl).then(() => {
-          alert("Image URL copied to clipboard!");
-        }).catch((err) => {
-          console.error("Clipboard error:", err);
-        });
-      }
-    });
+        // Event listeners
+        startBtn.addEventListener('click', startBroadcast);
+        stopBtn.addEventListener('click', stopBroadcast);
 
-    // Swipe to next image
-    nextBtn.addEventListener("click", () => {
-      if (currentIndex < images.length - 1) {
-        const currentImg = imageContainer.querySelector(".active");
-        currentImg.className = "swipe-image prev";
-        currentIndex++;
-        displayImage();
-      }
-    });
-
-    // Swipe to previous image
-    prevBtn.addEventListener("click", () => {
-      if (currentIndex > 0) {
-        const currentImg = imageContainer.querySelector(".active");
-        currentImg.className = "swipe-image";
-        currentIndex--;
-        displayImage();
-      }
-    });
-
-    // Swipe gesture support
-    let touchStartX = 0;
-    let touchEndX = 0;
-    imageContainer.addEventListener("touchstart", (e) => {
-      touchStartX = e.changedTouches[0].screenX;
-    });
-    imageContainer.addEventListener("touchend", (e) => {
-      touchEndX = e.changedTouches[0].screenX;
-      const swipeDistance = touchStartX - touchEndX;
-      if (swipeDistance > 50 && currentIndex < images.length - 1) {
-        const currentImg = imageContainer.querySelector(".active");
-        currentImg.className = "swipe-image prev";
-        currentIndex++;
-        displayImage();
-      } else if (swipeDistance < -50 && currentIndex > 0) {
-        const currentImg = imageContainer.querySelector(".active");
-        currentImg.className = "swipe-image";
-        currentIndex--;
-        displayImage();
-      }
-    });
-
-    // Keyboard navigation
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowRight" && currentIndex < images.length - 1) {
-        const currentImg = imageContainer.querySelector(".active");
-        currentImg.className = "swipe-image prev";
-        currentIndex++;
-        displayImage();
-      } else if (e.key === "ArrowLeft" && currentIndex > 0) {
-        const currentImg = imageContainer.querySelector(".active");
-        currentImg.className = "swipe-image";
-        currentIndex--;
-        displayImage();
-      }
-    });
-  </script>
+        // Log WebRTC support
+        console.log('WebRTC supported:', !!window.RTCPeerConnection);
+    </script>
 </body>
 </html>
